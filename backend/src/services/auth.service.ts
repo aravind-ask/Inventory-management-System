@@ -5,6 +5,7 @@ import User, { IUser } from "../models/user.model";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 
 interface LoginResponse {
+  user: Partial<IUser>
   accessToken: string;
   refreshToken: string;
 }
@@ -32,13 +33,10 @@ export class AuthService {
 
     await this.userRepository.update(user._id as string, { refreshToken });
 
-    return { accessToken, refreshToken };
+    return {user, accessToken, refreshToken };
   }
 
-  async register(
-    email: string,
-    password: string,
-  ): Promise<IUser> {
+  async register(email: string, password: string): Promise<IUser> {
     const existingUser = await this.userRepository.findOne({ email });
     if (existingUser) {
       throw new BadRequestError("Email already exists");
@@ -49,6 +47,10 @@ export class AuthService {
       email,
       password: hashedPassword,
     });
+  }
+
+  async logout(userId: string): Promise<void> {
+    await this.userRepository.update(userId, { refreshToken: null });
   }
 
   async refreshToken(refreshToken: string): Promise<string> {

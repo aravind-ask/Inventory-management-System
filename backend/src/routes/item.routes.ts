@@ -25,6 +25,18 @@ router.post(
 router.get(
   "/",
   authMiddleware,
+  [
+    query("page")
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage("Page must be a positive integer"),
+    query("limit")
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage("Limit must be a positive integer"),
+    query("search").optional().isString().trim(),
+    query("sort").optional().isString().trim(),
+  ],
   itemController.getAllItems.bind(itemController)
 );
 router.get(

@@ -1,6 +1,6 @@
 import express from "express";
 import { CustomerController } from "../controllers/customer.controller";
-import { body } from "express-validator";
+import { body, query } from "express-validator";
 import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = express.Router();
@@ -12,7 +12,7 @@ router.post(
   [
     body("name").notEmpty().withMessage("Name is required"),
     body("address").notEmpty().withMessage("Address is required"),
-    body("mobile").isMobilePhone("any").withMessage("Invalid mobile number"),
+    body("phone").isMobilePhone("any").withMessage("Invalid mobile number"),
   ],
   customerController.createCustomer.bind(customerController)
 );
@@ -20,6 +20,18 @@ router.post(
 router.get(
   "/",
   authMiddleware,
+  [
+    query("page")
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage("Page must be a positive integer"),
+    query("limit")
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage("Limit must be a positive integer"),
+    query("search").optional().isString().trim(),
+    query("sort").optional().isString().trim(),
+  ],
   customerController.getAllCustomers.bind(customerController)
 );
 router.get(
@@ -27,7 +39,7 @@ router.get(
   authMiddleware,
   customerController.getCustomer.bind(customerController)
 );
-router.put(
+router.patch(
   "/:id",
   authMiddleware,
   [

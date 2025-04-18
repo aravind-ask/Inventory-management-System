@@ -1,11 +1,25 @@
-import { Model, FilterQuery } from "mongoose";
+import { Model, FilterQuery, PaginateModel, PaginateResult } from "mongoose";
 import IRepository from "./base.repository";
 import { IItem } from "../models/item.model";
 
-export class ItemRepository implements IRepository<IItem> {
-  private model: Model<IItem>;
+interface GetAllItemsParams {
+  page: number;
+  limit: number;
+  search: string;
+  sort: string;
+}
 
-  constructor(model: Model<IItem>) {
+interface GetAllItemsResult {
+  items: IItem[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export class ItemRepository implements IRepository<IItem> {
+  private model: PaginateModel<IItem>;
+
+  constructor(model: PaginateModel<IItem>) {
     this.model = model;
   }
 
@@ -23,6 +37,35 @@ export class ItemRepository implements IRepository<IItem> {
 
   async findAll(query: FilterQuery<IItem> = {}): Promise<IItem[]> {
     return this.model.find(query).populate("createdBy", "email").exec();
+  }
+
+  async getAllItems(params: GetAllItemsParams): Promise<GetAllItemsResult> {
+    const { page, limit, search, sort } = params;
+    const query: FilterQuery<IItem> = search
+      ? {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+    const sortOption = sort
+      ? { [sort.replace("-", "")]: sort.startsWith("-") ? -1 : 1 }
+      : { createdAt: -1 };
+
+    const result: PaginateResult<IItem> = await this.model.paginate(query, {
+      page,
+      limit,
+      sort: sortOption,
+      populate: { path: "createdBy", select: "email" },
+    });
+
+    return {
+      items: result.docs,
+      total: result.totalDocs,
+      page: result.page || 1,
+      totalPages: result.totalPages,
+    };
   }
 
   async update(id: string, data: Partial<IItem>): Promise<IItem | null> {

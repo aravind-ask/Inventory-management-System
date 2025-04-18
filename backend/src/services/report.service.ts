@@ -1,4 +1,4 @@
-import { FilterQuery } from "mongoose";
+import { PaginateModel } from "mongoose";
 import ExcelJS from "exceljs";
 import PDFDocument from "pdfkit";
 import nodemailer from "nodemailer";
@@ -8,9 +8,24 @@ import Sale, { ISale } from "../models/sales.model";
 import Item, { IItem } from "../models/item.model";
 import { BadRequestError } from "../utils/errors";
 
-interface ReportFilter {
-  startDate?: Date;
-  endDate?: Date;
+interface ReportParams {
+  page: number;
+  limit: number;
+  search: string;
+  sort: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface LedgerParams extends ReportParams {
+  customerId: string;
+}
+
+interface ReportResult {
+  data: ISale[] | IItem[];
+  total: number;
+  page: number;
+  totalPages: number;
 }
 
 export class ReportService {
@@ -31,25 +46,69 @@ export class ReportService {
     });
   }
 
-  async getSalesReport(filter: ReportFilter): Promise<ISale[]> {
-    const query: FilterQuery<ISale> = {};
-    if (filter.startDate || filter.endDate) {
-      query.date = {};
-      if (filter.startDate) query.date.$gte = filter.startDate;
-      if (filter.endDate) query.date.$lte = filter.endDate;
+  async getSalesReport(params: ReportParams): Promise<ReportResult> {
+    const { page, limit, search, sort, startDate, endDate } = params;
+    if (startDate && isNaN(Date.parse(startDate))) {
+      throw new BadRequestError("Invalid start date");
     }
-    return this.saleRepository.findAll(query);
+    if (endDate && isNaN(Date.parse(endDate))) {
+      throw new BadRequestError("Invalid end date");
+    }
+
+    const result = await this.saleRepository.getAllSales({
+      page,
+      limit,
+      search,
+      sort,
+      startDate,
+      endDate,
+    });
+
+    return {
+      data: result.sales,
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+    };
   }
 
-  async getItemsReport(): Promise<IItem[]> {
-    return this.itemRepository.findAll();
+  async getItemsReport(params: ReportParams): Promise<ReportResult> {
+    const { page, limit, search, sort } = params;
+    const result = await this.itemRepository.getAllItems({
+      page,
+      limit,
+      search,
+      sort,
+    });
+
+    return {
+      data: result.items,
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+    };
   }
 
-  async getCustomerLedger(customerId: string): Promise<ISale[]> {
+  async getCustomerLedger(params: LedgerParams): Promise<ReportResult> {
+    const { customerId, page, limit, search, sort } = params;
     if (!customerId) {
       throw new BadRequestError("Customer ID is required");
     }
-    return this.saleRepository.findAll({ customerId });
+
+    const result = await this.saleRepository.getAllSales({
+      page,
+      limit,
+      search,
+      sort,
+      customerId,
+    });
+
+    return {
+      data: result.sales,
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+    };
   }
 
   async exportToExcel(
@@ -61,7 +120,7 @@ export class ReportService {
       type.charAt(0).toUpperCase() + type.slice(1)
     );
 
-    if (type === "sales") {
+    if (type === "sales" || type === "ledger") {
       worksheet.columns = [
         { header: "Item", key: "itemName", width: 20 },
         { header: "Customer", key: "customerName", width: 20 },
@@ -74,7 +133,7 @@ export class ReportService {
           itemName: (sale.itemId as any)?.name || "N/A",
           customerName: (sale.customerId as any)?.name || "Cash",
           quantity: sale.quantity,
-          date: sale.date.toISOString().split("T")[0],
+          date: new Date(sale.date).toISOString().split("T")[0],
           paymentType: sale.paymentType,
         });
       });
@@ -95,25 +154,10 @@ export class ReportService {
           createdBy: (item.createdBy as any)?.email || "N/A",
         });
       });
-    } else if (type === "ledger") {
-      worksheet.columns = [
-        { header: "Item", key: "itemName", width: 20 },
-        { header: "Quantity", key: "quantity", width: 10 },
-        { header: "Date", key: "date", width: 15 },
-        { header: "Payment Type", key: "paymentType", width: 15 },
-      ];
-      data.forEach((sale: ISale) => {
-        worksheet.addRow({
-          itemName: (sale.itemId as any)?.name || "N/A",
-          quantity: sale.quantity,
-          date: sale.date.toISOString().split("T")[0],
-          paymentType: sale.paymentType,
-        });
-      });
     }
 
     const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer) as Buffer;
+    return Buffer.from(buffer);
   }
 
   async exportToPDF(
@@ -133,14 +177,14 @@ export class ReportService {
       });
     doc.moveDown();
 
-    if (type === "sales") {
+    if (type === "sales" || type === "ledger") {
       doc.fontSize(12).text("Item | Customer | Quantity | Date | Payment Type");
       doc.moveDown();
       data.forEach((sale: ISale) => {
         doc.text(
           `${(sale.itemId as any)?.name || "N/A"} | ${(sale.customerId as any)?.name || "Cash"} | ${
             sale.quantity
-          } | ${sale.date.toISOString().split("T")[0]} | ${sale.paymentType}`
+          } | ${new Date(sale.date).toISOString().split("T")[0]} | ${sale.paymentType}`
         );
       });
     } else if (type === "items") {
@@ -153,16 +197,6 @@ export class ReportService {
           `${item.name} | ${item.description} | ${item.quantity} | ${item.price} | ${
             (item.createdBy as any)?.email || "N/A"
           }`
-        );
-      });
-    } else if (type === "ledger") {
-      doc.fontSize(12).text("Item | Quantity | Date | Payment Type");
-      doc.moveDown();
-      data.forEach((sale: ISale) => {
-        doc.text(
-          `${(sale.itemId as any)?.name || "N/A"} | ${sale.quantity} | ${
-            sale.date.toISOString().split("T")[0]
-          } | ${sale.paymentType}`
         );
       });
     }

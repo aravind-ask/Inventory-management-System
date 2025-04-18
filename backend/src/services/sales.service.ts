@@ -4,6 +4,20 @@ import Sale, { ISale } from "../models/sales.model";
 import Item from "../models/item.model";
 import { BadRequestError, NotFoundError } from "../utils/errors";
 
+interface GetAllSalesParams {
+  page: number;
+  limit: number;
+  search: string;
+  sort: string;
+}
+
+interface GetAllSalesResult {
+  sales: ISale[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export class SaleService {
   private saleRepository: SaleRepository;
   private itemRepository: ItemRepository;
@@ -43,7 +57,12 @@ export class SaleService {
     return sale;
   }
 
-  async getAllSales(): Promise<ISale[]> {
-    return this.saleRepository.findAll();
+  async getAllSales(params: GetAllSalesParams): Promise<GetAllSalesResult> {
+    const { page, limit, search, sort } = params;
+    return this.saleRepository.getAllSales({ page, limit, search, sort });
+  }
+
+  async searchSales(query: string): Promise<ISale[]> {
+    return this.saleRepository.search(query);
   }
 }

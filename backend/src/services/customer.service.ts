@@ -2,6 +2,20 @@ import { CustomerRepository } from "../repositories/customer.repository";
 import Customer, { ICustomer } from "../models/customer.model";
 import { BadRequestError, NotFoundError } from "../utils/errors";
 
+interface GetAllCustomersParams {
+  page: number;
+  limit: number;
+  search: string;
+  sort: string;
+}
+
+interface GetAllCustomersResult {
+  customers: ICustomer[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
 export class CustomerService {
   private customerRepository: CustomerRepository;
 
@@ -10,8 +24,8 @@ export class CustomerService {
   }
 
   async createCustomer(data: Partial<ICustomer>): Promise<ICustomer> {
-    const { name, address, mobile } = data;
-    if (!name || !address || !mobile) {
+    const { name, address, phone } = data;
+    if (!name || !address || !phone) {
       throw new BadRequestError("Missing required fields");
     }
     return this.customerRepository.create(data);
@@ -25,8 +39,16 @@ export class CustomerService {
     return customer;
   }
 
-  async getAllCustomers(): Promise<ICustomer[]> {
-    return this.customerRepository.findAll();
+  async getAllCustomers(
+    params: GetAllCustomersParams
+  ): Promise<GetAllCustomersResult> {
+    const { page, limit, search, sort } = params;
+    return this.customerRepository.getAllCustomers({
+      page,
+      limit,
+      search,
+      sort,
+    });
   }
 
   async updateCustomer(

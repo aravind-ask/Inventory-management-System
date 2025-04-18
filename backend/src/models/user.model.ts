@@ -4,7 +4,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   role: "admin" | "staff";
-  refreshToken?: string;
+  refreshToken?: string | null;
 }
 
 const UserSchema = new Schema<IUser>(

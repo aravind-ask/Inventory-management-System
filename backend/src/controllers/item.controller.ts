@@ -35,9 +35,25 @@ export class ItemController {
   }
 
   async getAllItems(req: Request, res: Response, next: NextFunction) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return next(new BadRequestError("Validation failed", errors.array()));
+    }
+
     try {
-      const items = await this.itemService.getAllItems();
-      res.json(items);
+      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const result = await this.itemService.getAllItems({
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        search: search as string,
+        sort: sort as string,
+      });
+      res.json({
+        items: result.items,
+        total: result.total,
+        page: result.page,
+        totalPages: result.totalPages,
+      });
     } catch (err) {
       next(err);
     }

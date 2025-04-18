@@ -1,6 +1,7 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, PaginateModel } from "mongoose";
 import { IItem } from "./item.model";
 import { ICustomer } from "./customer.model";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 export interface ISale extends Document {
   itemId: IItem["_id"];
@@ -21,4 +22,9 @@ const SaleSchema = new Schema<ISale>(
   { timestamps: true }
 );
 
-export default mongoose.model<ISale>("Sale", SaleSchema);
+SaleSchema.plugin(mongoosePaginate);
+
+export default mongoose.model<ISale>(
+  "Sale",
+  SaleSchema
+) as PaginateModel<ISale>;

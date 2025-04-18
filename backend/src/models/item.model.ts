@@ -1,5 +1,6 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema, Document, PaginateModel } from "mongoose";
 import { IUser } from "./user.model";
+import mongoosePaginate from "mongoose-paginate-v2";
 
 export interface IItem extends Document {
   name: string;
@@ -20,4 +21,9 @@ const ItemSchema = new Schema<IItem>(
   { timestamps: true }
 );
 
-export default mongoose.model<IItem>("Item", ItemSchema);
+ItemSchema.plugin(mongoosePaginate);
+
+export default mongoose.model<IItem>(
+  "Item",
+  ItemSchema
+) as PaginateModel<IItem>;

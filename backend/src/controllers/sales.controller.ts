@@ -35,8 +35,34 @@ export class SaleController {
   }
 
   async getAllSales(req: Request, res: Response, next: NextFunction) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return next(new BadRequestError("Validation failed", errors.array()));
+    }
+
     try {
-      const sales = await this.saleService.getAllSales();
+      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const result = await this.saleService.getAllSales({
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        search: search as string,
+        sort: sort as string,
+      });
+      res.json({
+        sales: result.sales,
+        total: result.total,
+        page: result.page,
+        totalPages: result.totalPages,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async searchSales(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { query } = req.query;
+      const sales = await this.saleService.searchSales(query as string);
       res.json(sales);
     } catch (err) {
       next(err);

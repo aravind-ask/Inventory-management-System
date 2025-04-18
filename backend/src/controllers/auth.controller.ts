@@ -1,7 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthService } from "../services/auth.service";
 import { validationResult } from "express-validator";
-import { BadRequestError } from "../utils/errors";
+import { BadRequestError, UnauthorizedError } from "../utils/errors";
+import { AuthRequest } from "../middlewares/auth.middleware";
 
 export class AuthController {
   private authService: AuthService;
@@ -18,8 +19,8 @@ export class AuthController {
 
     try {
       const { email, password } = req.body;
-      const tokens = await this.authService.login(email, password);
-      res.json(tokens);
+      const loginData = await this.authService.login(email, password);
+      res.json(loginData);
     } catch (err) {
       next(err);
     }
@@ -50,6 +51,19 @@ export class AuthController {
       const { refreshToken } = req.body;
       const accessToken = await this.authService.refreshToken(refreshToken);
       res.json({ accessToken });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async logout(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new UnauthorizedError("User not authenticated");
+      }
+      await this.authService.logout(userId);
+      res.json({ message: "Logged out successfully" });
     } catch (err) {
       next(err);
     }

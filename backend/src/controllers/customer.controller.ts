@@ -35,9 +35,25 @@ export class CustomerController {
   }
 
   async getAllCustomers(req: Request, res: Response, next: NextFunction) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return next(new BadRequestError("Validation failed", errors.array()));
+    }
+
     try {
-      const customers = await this.customerService.getAllCustomers();
-      res.json(customers);
+      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const result = await this.customerService.getAllCustomers({
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        search: search as string,
+        sort: sort as string,
+      });
+      res.json({
+        customers: result.customers,
+        total: result.total,
+        page: result.page,
+        totalPages: result.totalPages,
+      });
     } catch (err) {
       next(err);
     }

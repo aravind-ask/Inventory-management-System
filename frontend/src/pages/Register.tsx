@@ -1,72 +1,104 @@
-import { useState } from "react";
+import { motion } from "framer-motion";
+import { useForm } from "react-hook-form";
 import { useRegisterMutation } from "../api/authApi";
 import { useNavigate } from "react-router-dom";
+import { RegisterCredentials } from "../types/auth";
 
 const Register = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [register, { isLoading }] = useRegisterMutation();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterCredentials>();
+  const [registerUser, { isLoading, error }] = useRegisterMutation();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const onSubmit = async (data: RegisterCredentials) => {
     try {
-      await register({ email, password }).unwrap();
+      await registerUser(data).unwrap();
       navigate("/dashboard");
-    } catch (err) {
-      setError("Registration failed. Email may already be in use.");
-    }
+    } catch {}
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <form onSubmit={handleSubmit}>
+    <div className="min-h-screen flex items-center justify-center bg-neutral">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-white p-10 rounded-xl shadow-lg w-full max-w-sm"
+      >
+        <h2 className="text-2xl font-semibold mb-6 text-text">
+          Create Account
+        </h2>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-red-500 mb-4 text-sm text-center"
+          >
+            Registration failed. Email may be in use.
+          </motion.p>
+        )}
+        <form onSubmit={handleSubmit(onSubmit)}>
           <div className="mb-4">
-            <label className="block text-gray-700 mb-2" htmlFor="email">
-              Email
+            <label className="block text-text text-sm mb-1" htmlFor="email">
+              Email Address
             </label>
             <input
               type="email"
               id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              {...register("email", {
+                required: "Email is required",
+                pattern: { value: /^\S+@\S+$/i, message: "Invalid email" },
+              })}
+              className={`w-full p-2 border rounded-md text-sm focus:ring-2 focus:ring-secondary ${errors.email ? "border-red-500" : "border-gray-300"}`}
             />
+            {errors.email && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.email.message}
+              </p>
+            )}
           </div>
           <div className="mb-6">
-            <label className="block text-gray-700 mb-2" htmlFor="password">
+            <label className="block text-text text-sm mb-1" htmlFor="password">
               Password
             </label>
             <input
               type="password"
               id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              {...register("password", {
+                required: "Password is required",
+                minLength: {
+                  value: 6,
+                  message: "Password must be at least 6 characters",
+                },
+              })}
+              className={`w-full p-2 border rounded-md text-sm focus:ring-2 focus:ring-secondary ${errors.password ? "border-red-500" : "border-gray-300"}`}
             />
+            {errors.password && (
+              <p className="text-red-500 text-xs mt-1">
+                {errors.password.message}
+              </p>
+            )}
           </div>
-          <button
+          <motion.button
             type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:bg-blue-300"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-accent text-white p-2 rounded-md text-sm hover:bg-green-600 disabled:bg-green-300"
             disabled={isLoading}
           >
-            {isLoading ? "Registering..." : "Register"}
-          </button>
+            {isLoading ? "Creating Account..." : "Create Account"}
+          </motion.button>
         </form>
-        <p className="mt-4 text-center">
+        <p className="mt-4 text-center text-text text-sm">
           Already have an account?{" "}
-          <a href="/login" className="text-blue-500 hover:underline">
-            Login
+          <a href="/login" className="text-secondary hover:underline">
+            Sign in
           </a>
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 };

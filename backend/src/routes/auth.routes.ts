@@ -1,6 +1,7 @@
 import express from "express";
 import { AuthController } from "../controllers/auth.controller";
 import { body } from "express-validator";
+import { authMiddleware } from "../middlewares/auth.middleware";
 
 const router = express.Router();
 const authController = new AuthController();
@@ -27,9 +28,15 @@ router.post(
 );
 
 router.post(
-  "/refresh-token",
+  "/refresh",
   [body("refreshToken").notEmpty().withMessage("Refresh token is required")],
   authController.refreshToken.bind(authController)
+);
+
+router.post(
+  "/logout",
+  authMiddleware,
+  authController.logout.bind(authController)
 );
 
 export default router;
