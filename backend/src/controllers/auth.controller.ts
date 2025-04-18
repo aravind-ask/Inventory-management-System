@@ -32,8 +32,8 @@ export class AuthController {
     }
 
     try {
-      const { email, password, role } = req.body;
-      const user = await this.authService.register(email, password, role);
+      const { email, password } = req.body;
+      const user = await this.authService.register(email, password);
       res.status(201).json(user);
     } catch (err) {
       next(err);

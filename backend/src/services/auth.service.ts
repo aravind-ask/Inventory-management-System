@@ -38,7 +38,6 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    role: "admin" | "staff"
   ): Promise<IUser> {
     const existingUser = await this.userRepository.findOne({ email });
     if (existingUser) {
@@ -49,7 +48,6 @@ export class AuthService {
     return this.userRepository.create({
       email,
       password: hashedPassword,
-      role,
     });
   }
 
