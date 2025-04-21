@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useRegisterMutation } from "../api/authApi";
 import { useNavigate } from "react-router-dom";
 import { RegisterCredentials } from "../types/auth";
+import { Link } from "react-router-dom";
 
 const Register = () => {
   const {
@@ -94,9 +95,9 @@ const Register = () => {
         </form>
         <p className="mt-4 text-center text-text text-sm">
           Already have an account?{" "}
-          <a href="/login" className="text-secondary hover:underline">
-            Sign in
-          </a>
+          <Link to="/login" className="text-accent hover:text-green-600">
+            Login
+          </Link>
         </p>
       </motion.div>
     </div>

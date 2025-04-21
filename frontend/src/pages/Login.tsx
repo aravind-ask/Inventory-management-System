@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useLoginMutation } from "../api/authApi";
 import { useNavigate } from "react-router-dom";
 import { LoginCredentials } from "../types/auth";
+import { Link } from "react-router-dom";
 
 const Login = () => {
   const {
@@ -92,9 +93,9 @@ const Login = () => {
         </form>
         <p className="mt-4 text-center text-text text-sm">
           New to Inventory Pro?{" "}
-          <a href="/register" className="text-secondary hover:underline">
-            Create an account
-          </a>
+          <Link to="/register" className="text-accent hover:text-green-600">
+            Register
+          </Link>
         </p>
       </motion.div>
     </div>
