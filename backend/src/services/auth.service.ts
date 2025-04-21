@@ -1,11 +1,11 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
 import User, { IUser } from "../models/user.model";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 
 interface LoginResponse {
-  user: Partial<IUser>
+  user: Partial<IUser>;
   accessToken: string;
   refreshToken: string;
 }
@@ -33,7 +33,7 @@ export class AuthService {
 
     await this.userRepository.update(user._id as string, { refreshToken });
 
-    return {user, accessToken, refreshToken };
+    return { user, accessToken, refreshToken };
   }
 
   async register(email: string, password: string): Promise<IUser> {
