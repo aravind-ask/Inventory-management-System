@@ -51,7 +51,7 @@ export const salesApi = createApi({
         method: "POST",
         body: sale,
       }),
-      invalidatesTags: ["Sales", "Items", "Reports"],
+      invalidatesTags: ["Sales"],
       onQueryStarted: async (_, { queryFulfilled }) => {
         try {
           await queryFulfilled;

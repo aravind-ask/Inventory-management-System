@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import Sidebar from "../components/Sidebar";
 import Pagination from "../components/Pagination";
 import {
   useGetCustomersQuery,
@@ -9,7 +8,6 @@ import {
   useUpdateCustomerMutation,
   useDeleteCustomerMutation,
 } from "../api/customersApi";
-import toast from "react-hot-toast";
 
 interface CustomerForm {
   name: string;

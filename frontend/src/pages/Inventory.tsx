@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import Sidebar from "../components/Sidebar";
 import Pagination from "../components/Pagination";
 import {
   useGetItemsQuery,
@@ -9,7 +8,6 @@ import {
   useUpdateItemMutation,
   useDeleteItemMutation,
 } from "../api/itemsApi";
-import toast from "react-hot-toast";
 
 interface ItemForm {
   name: string;

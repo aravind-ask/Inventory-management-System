@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import Sidebar from "../components/Sidebar";
 import { useAppSelector } from "../store/hooks";
 import { useGetDashboardDataQuery } from "../api/dashboardApi";
 import { Bar } from "react-chartjs-2";

@@ -7,8 +7,11 @@ import {
 } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "../store";
 
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
+
 export const baseQuery = fetchBaseQuery({
-  baseUrl: "http://localhost:5001/api",
+  baseUrl: `${BASE_URL}/api`,
   credentials: "include",
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.accessToken;

@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
-import Sidebar from "../components/Sidebar";
 import Pagination from "../components/Pagination";
 import { useGetItemsQuery } from "../api/itemsApi";
 import { useGetCustomersQuery } from "../api/customersApi";
 import { useGetSalesQuery, useCreateSaleMutation } from "../api/salesApi";
-import toast from "react-hot-toast";
 
 interface SaleForm {
   itemId: string;
