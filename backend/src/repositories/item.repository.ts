@@ -7,6 +7,8 @@ interface GetAllItemsParams {
   limit: number;
   search: string;
   sort: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface GetAllItemsResult {
@@ -40,7 +42,8 @@ export class ItemRepository implements IRepository<IItem> {
   }
 
   async getAllItems(params: GetAllItemsParams): Promise<GetAllItemsResult> {
-    const { page, limit, search, sort } = params;
+    const { page, limit, search, sort, startDate, endDate } = params;
+
     const query: FilterQuery<IItem> = search
       ? {
           $or: [
@@ -49,6 +52,13 @@ export class ItemRepository implements IRepository<IItem> {
           ],
         }
       : {};
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
     const sortOption = sort
       ? { [sort.replace("-", "")]: sort.startsWith("-") ? -1 : 1 }
       : { createdAt: -1 };

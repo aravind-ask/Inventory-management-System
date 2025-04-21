@@ -55,7 +55,7 @@ export class SaleRepository implements IRepository<ISale> {
     }
 
     if (startDate || endDate) {
-      query.date = {}; 
+      query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
       if (endDate) query.date.$lte = new Date(endDate);
     }
@@ -68,14 +68,38 @@ export class SaleRepository implements IRepository<ISale> {
       ? { [sort.replace("-", "")]: sort.startsWith("-") ? -1 : 1 }
       : { createdAt: -1 };
 
+    // Enhanced debug logging
+    console.log("SaleRepository.getAllSales Params:", {
+      page,
+      limit,
+      search,
+      sort,
+      startDate,
+      endDate,
+      customerId,
+    });
+    console.log(
+      "SaleRepository.getAllSales Query:",
+      JSON.stringify(query, null, 2)
+    );
+
     const result: PaginateResult<ISale> = await this.model.paginate(query, {
       page,
       limit,
       sort: sortOption,
       populate: [
         { path: "itemId", select: "name" },
-        { path: "customerId", select: "name" },
+        { path: "customerId", select: "name", strictPopulate: false }, // Allow missing customerId
       ],
+    });
+
+    // Log populated data
+    console.log("SaleRepository.getAllSales Result:", {
+      docs: result.docs.length,
+      totalDocs: result.totalDocs,
+      page: result.page,
+      totalPages: result.totalPages,
+      sampleDoc: result.docs.length ? result.docs[0] : null,
     });
 
     return {
@@ -99,15 +123,72 @@ export class SaleRepository implements IRepository<ISale> {
   }
 
   async search(query: string): Promise<ISale[]> {
-    return this.model
-      .find({
-        $or: [
-          { "itemId.name": { $regex: query, $options: "i" } },
-          { "customerId.name": { $regex: query, $options: "i" } },
-        ],
-      })
-      .populate("itemId", "name")
-      .populate("customerId", "name")
+    if (!query || query.trim() === "") {
+      return [];
+    }
+
+    const sales = await this.model
+      .aggregate([
+        {
+          $lookup: {
+            from: "items",
+            localField: "itemId",
+            foreignField: "_id",
+            as: "item",
+          },
+        },
+        {
+          $lookup: {
+            from: "customers",
+            localField: "customerId",
+            foreignField: "_id",
+            as: "customer",
+          },
+        },
+        {
+          $unwind: {
+            path: "$item",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $unwind: {
+            path: "$customer",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $match: {
+            $or: [
+              { "item.name": { $regex: query, $options: "i" } },
+              { "customer.name": { $regex: query, $options: "i" } },
+            ],
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            itemId: "$item._id",
+            customerId: "$customer._id",
+            quantity: 1,
+            paymentType: 1,
+            createdBy: 1,
+            date: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            "itemId.name": "$item.name",
+            "customerId.name": "$customer.name",
+          },
+        },
+      ])
       .exec();
+
+    return sales.map((sale) => ({
+      ...sale,
+      itemId: sale.itemId ? { _id: sale.itemId, name: sale.itemId.name } : null,
+      customerId: sale.customerId
+        ? { _id: sale.customerId, name: sale.customerId.name }
+        : null,
+    }));
   }
 }

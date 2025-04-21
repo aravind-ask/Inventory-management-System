@@ -70,7 +70,6 @@ const Dashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-neutral">
-      <Sidebar />
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

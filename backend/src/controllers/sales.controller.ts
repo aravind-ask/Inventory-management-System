@@ -41,12 +41,23 @@ export class SaleController {
     }
 
     try {
-      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const {
+        page = 1,
+        limit = 10,
+        search = "",
+        sort = "",
+        startDate,
+        endDate,
+        customerId,
+      } = req.query;
       const result = await this.saleService.getAllSales({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         search: search as string,
         sort: sort as string,
+        startDate: startDate as string | undefined,
+        endDate: endDate as string | undefined,
+        customerId: customerId as string | undefined,
       });
       res.json({
         sales: result.sales,

@@ -53,12 +53,21 @@ export class ReportController {
     }
 
     try {
-      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const {
+        page = 1,
+        limit = 10,
+        search = "",
+        sort = "",
+        startDate,
+        endDate,
+      } = req.query;
       const result = await this.reportService.getItemsReport({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
         search: search as string,
         sort: sort as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
       });
       res.json({
         data: result.data,

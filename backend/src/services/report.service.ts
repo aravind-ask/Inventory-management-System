@@ -73,12 +73,14 @@ export class ReportService {
   }
 
   async getItemsReport(params: ReportParams): Promise<ReportResult> {
-    const { page, limit, search, sort } = params;
+    const { page, limit, search, sort, startDate, endDate } = params;
     const result = await this.itemRepository.getAllItems({
       page,
       limit,
       search,
       sort,
+      startDate,
+      endDate,
     });
 
     return {

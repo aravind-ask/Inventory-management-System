@@ -11,6 +11,7 @@ import Customers from "./pages/Customers";
 import Sales from "./pages/Sales";
 import Reports from "./pages/Reports";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./pages/Layout";
 
 const App = () => {
   const dispatch = useAppDispatch();
@@ -30,11 +31,13 @@ const App = () => {
           <Route path="/" element={<Login />} />
         </Route>
         <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/inventory" element={<Inventory />} />
-          <Route path="/customers" element={<Customers />} />
-          <Route path="/sales" element={<Sales />} />
-          <Route path="/reports" element={<Reports />} />
+          <Route element={<Layout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/inventory" element={<Inventory />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/reports" element={<Reports />} />
+          </Route>
         </Route>
       </Routes>
     </Router>

@@ -1,9 +1,15 @@
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { useLogoutMutation } from "../api/authApi";
+import { useState, useEffect } from "react";
 
 const Sidebar = () => {
   const [logout, { isLoading }] = useLogoutMutation();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const navItems = [
     { name: "Dashboard", path: "/dashboard", icon: "🏠" },
@@ -15,10 +21,10 @@ const Sidebar = () => {
 
   return (
     <motion.div
-      initial={{ x: -250 }}
+      initial={isMounted ? false : { x: -250 }}
       animate={{ x: 0 }}
       transition={{ duration: 0.3 }}
-      className="w-64 bg-primary text-white h-screen p-6"
+      className="w-64 bg-primary text-white h-screen p-6 fixed top-0 left-0"
     >
       <h1 className="text-xl font-semibold mb-8">Inventory Pro</h1>
       <nav>
@@ -27,7 +33,9 @@ const Sidebar = () => {
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center py-2 px-4 rounded-md mb-2 text-sm ${isActive ? "bg-secondary" : "hover:bg-blue-700"}`
+              `flex items-center py-2 px-4 rounded-md mb-2 text-sm ${
+                isActive ? "bg-secondary" : "hover:bg-blue-700"
+              }`
             }
           >
             <span className="mr-2">{item.icon}</span>

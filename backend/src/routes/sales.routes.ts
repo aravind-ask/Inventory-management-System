@@ -15,7 +15,7 @@ router.post(
       .isInt({ min: 1 })
       .withMessage("Quantity must be a positive integer"),
     body("paymentType")
-      .isIn(["customer", "cash"])
+      .isIn(["customer", "cash", "credit", "debit"])
       .withMessage("Invalid payment type"),
     body("customerId")
       .optional()
@@ -37,8 +37,28 @@ router.get(
       .optional()
       .isInt({ min: 1 })
       .withMessage("Limit must be a positive integer"),
-    query("search").optional().isString().trim(),
-    query("sort").optional().isString().trim(),
+    query("search")
+      .optional()
+      .isString()
+      .trim()
+      .withMessage("Search must be a string"),
+    query("sort")
+      .optional()
+      .isString()
+      .trim()
+      .withMessage("Sort must be a string"),
+    query("startDate")
+      .optional()
+      .custom((value) => {
+        if (value === "") return true;
+        return !isNaN(Date.parse(value)) || "Start date must be a valid date";
+      }),
+    query("endDate")
+      .optional()
+      .custom((value) => {
+        if (value === "") return true;
+        return !isNaN(Date.parse(value)) || "End date must be a valid date";
+      }),
   ],
   saleController.getAllSales.bind(saleController)
 );

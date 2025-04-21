@@ -9,6 +9,9 @@ interface GetAllSalesParams {
   limit: number;
   search: string;
   sort: string;
+  startDate?: string;
+  endDate?: string;
+  customerId?: string;
 }
 
 interface GetAllSalesResult {
@@ -58,8 +61,17 @@ export class SaleService {
   }
 
   async getAllSales(params: GetAllSalesParams): Promise<GetAllSalesResult> {
-    const { page, limit, search, sort } = params;
-    return this.saleRepository.getAllSales({ page, limit, search, sort });
+    const { page, limit, search, sort, startDate, endDate, customerId } =
+      params;
+    return this.saleRepository.getAllSales({
+      page,
+      limit,
+      search,
+      sort,
+      startDate,
+      endDate,
+      customerId,
+    });
   }
 
   async searchSales(query: string): Promise<ISale[]> {

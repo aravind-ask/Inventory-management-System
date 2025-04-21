@@ -8,7 +8,7 @@ export interface ISale extends Document {
   customerId?: ICustomer["_id"];
   quantity: number;
   date: Date;
-  paymentType: "customer" | "cash";
+  paymentType: "customer" | "cash" | "credit" | "debit";
 }
 
 const SaleSchema = new Schema<ISale>(
@@ -17,7 +17,11 @@ const SaleSchema = new Schema<ISale>(
     customerId: { type: Schema.Types.ObjectId, ref: "Customer" },
     quantity: { type: Number, required: true, min: 1 },
     date: { type: Date, required: true, default: Date.now },
-    paymentType: { type: String, enum: ["customer", "cash"], required: true },
+    paymentType: {
+      type: String,
+      enum: ["customer", "cash", "credit", "debit"],
+      required: true,
+    },
   },
   { timestamps: true }
 );
