@@ -1,5 +1,6 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { DashboardService } from "../services/dashboard.service";
+import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
 
 export class DashboardController {
   private dashboardService: DashboardService;
@@ -8,12 +9,17 @@ export class DashboardController {
     this.dashboardService = new DashboardService();
   }
 
-  async getDashboardData(req: Request, res: Response, next: NextFunction) {
+  async getDashboardData(req: Request, res: Response) {
     try {
       const data = await this.dashboardService.getDashboardData();
-      res.status(200).json(data);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { dashboardData: data },
+        "Dashboard data retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 }

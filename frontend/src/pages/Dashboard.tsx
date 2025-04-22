@@ -28,7 +28,7 @@ const Dashboard = () => {
   if (isLoading) {
     return (
       <div className="flex min-h-screen bg-neutral justify-center items-center">
-        <p className="text-text">Loading...</p>
+        <p className="text-text text-lg">Loading...</p>
       </div>
     );
   }
@@ -36,13 +36,25 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="flex min-h-screen bg-neutral justify-center items-center">
-        <p className="text-red-500">Error loading dashboard data</p>
+        <p className="text-red-500 text-lg">
+          {error && "data" in error
+            ? (error.data as any)?.message || "Error loading dashboard data"
+            : "Error loading dashboard data"}
+        </p>
+      </div>
+    );
+  }
+
+  if (!data?.dashboardData) {
+    return (
+      <div className="flex min-h-screen bg-neutral justify-center items-center">
+        <p className="text-gray-500 text-lg">No dashboard data available</p>
       </div>
     );
   }
 
   const { totalSales, totalRevenue, inventoryStatus, recentCustomerLedger } =
-    data || {};
+    data.dashboardData;
 
   // Chart data for inventory status
   const chartData = {
@@ -51,8 +63,8 @@ const Dashboard = () => {
       {
         label: "Inventory Status",
         data: [
-          inventoryStatus?.totalItems || 0,
-          inventoryStatus?.lowStockItems || 0,
+          inventoryStatus?.totalItems ?? 0,
+          inventoryStatus?.lowStockItems ?? 0,
         ],
         backgroundColor: ["#4BC0C0", "#FF6384"],
       },
@@ -73,20 +85,20 @@ const Dashboard = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 p-8"
+        className="flex-1 p-4 sm:p-8"
       >
         <h1 className="text-2xl font-semibold mb-6 text-text">
-          Welcome, {user?.email}
+          Welcome, {user?.email || "User"}
         </h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <motion.div
             whileHover={{ scale: 1.02 }}
             className="bg-white p-6 rounded-lg shadow-sm border border-gray-100"
           >
             <h2 className="text-lg font-medium mb-2 text-text">Total Sales</h2>
-            <p className="text-xl text-accent">{totalSales || 0} Sales</p>
+            <p className="text-xl text-accent">{totalSales ?? 0} Sales</p>
             <p className="text-sm text-gray-600">
-              Revenue: ${totalRevenue?.toFixed(2) || "0.00"}
+              Revenue: ${(totalRevenue ?? 0).toFixed(2)}
             </p>
           </motion.div>
           <motion.div
@@ -97,10 +109,10 @@ const Dashboard = () => {
               Inventory Status
             </h2>
             <p className="text-xl text-accent">
-              {inventoryStatus?.totalItems || 0} Items
+              {inventoryStatus?.totalItems ?? 0} Items
             </p>
             <p className="text-sm text-gray-600">
-              Low Stock: {inventoryStatus?.lowStockItems || 0}
+              Low Stock: {inventoryStatus?.lowStockItems ?? 0}
             </p>
           </motion.div>
           <motion.div
@@ -111,12 +123,12 @@ const Dashboard = () => {
               Customer Ledger
             </h2>
             <p className="text-sm text-gray-600">Recent Transactions:</p>
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-2 space-y-1 max-h-32 overflow-y-auto">
               {recentCustomerLedger?.length ? (
-                recentCustomerLedger.map((sale: any) => (
+                recentCustomerLedger.map((sale : any) => (
                   <li key={sale._id} className="text-sm text-text">
-                    {sale.itemId?.name || "N/A"} - {sale.quantity} units (
-                    {sale.customerId?.name || "Cash"})
+                    {sale.itemId?.name ?? "N/A"} - {sale.quantity} unit(s) (
+                    {sale.customerId?.name ?? sale.paymentType})
                   </li>
                 ))
               ) : (

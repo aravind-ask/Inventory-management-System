@@ -1,8 +1,9 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { AuthService } from "../services/auth.service";
 import { validationResult } from "express-validator";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
 
 export class AuthController {
   private authService: AuthService;
@@ -11,61 +12,80 @@ export class AuthController {
     this.authService = new AuthService();
   }
 
-  async login(req: Request, res: Response, next: NextFunction) {
+  async login(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const { email, password } = req.body;
       const loginData = await this.authService.login(email, password);
-      res.json(loginData);
+      return responseHandler(res, HttpStatus.OK, loginData, "Login successful");
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async register(req: Request, res: Response, next: NextFunction) {
+  async register(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const { email, password } = req.body;
       const user = await this.authService.register(email, password);
-      res.status(201).json(user);
+      return responseHandler(
+        res,
+        HttpStatus.CREATED,
+        { user },
+        "User registered successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async refreshToken(req: Request, res: Response, next: NextFunction) {
+  async refreshToken(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const { refreshToken } = req.body;
       const accessToken = await this.authService.refreshToken(refreshToken);
-      res.json({ accessToken });
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { accessToken },
+        "Token refreshed successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async logout(req: AuthRequest, res: Response, next: NextFunction) {
+  async logout(req: AuthRequest, res: Response) {
     try {
       const userId = req.user?.id;
       if (!userId) {
         throw new UnauthorizedError("User not authenticated");
       }
       await this.authService.logout(userId);
-      res.json({ message: "Logged out successfully" });
+      return responseHandler(res, HttpStatus.OK, {}, "Logged out successfully");
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 }

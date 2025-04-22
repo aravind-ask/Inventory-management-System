@@ -1,8 +1,9 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { ItemService } from "../services/item.service";
 import { validationResult } from "express-validator";
 import { BadRequestError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
 
 export class ItemController {
   private itemService: ItemService;
@@ -11,33 +12,49 @@ export class ItemController {
     this.itemService = new ItemService();
   }
 
-  async createItem(req: AuthRequest, res: Response, next: NextFunction) {
+  async createItem(req: AuthRequest, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const item = await this.itemService.createItem(req.body, req.user!.id);
-      res.status(201).json(item);
+      return responseHandler(
+        res,
+        HttpStatus.CREATED,
+        { item },
+        "Item created successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async getItem(req: Request, res: Response, next: NextFunction) {
+  async getItem(req: Request, res: Response) {
     try {
       const item = await this.itemService.getItem(req.params.id);
-      res.json(item);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { item },
+        "Item retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async getAllItems(req: Request, res: Response, next: NextFunction) {
+  async getAllItems(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
@@ -48,47 +65,70 @@ export class ItemController {
         search: search as string,
         sort: sort as string,
       });
-      res.json({
-        items: result.items,
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages,
-      });
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        {
+          items: result.items,
+          total: result.total,
+          page: result.page,
+          totalPages: result.totalPages,
+        },
+        "Items retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async updateItem(req: Request, res: Response, next: NextFunction) {
+  async updateItem(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const item = await this.itemService.updateItem(req.params.id, req.body);
-      res.json(item);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { item },
+        "Item updated successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async deleteItem(req: Request, res: Response, next: NextFunction) {
+  async deleteItem(req: Request, res: Response) {
     try {
       await this.itemService.deleteItem(req.params.id);
-      res.status(204).send();
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        {},
+        "Item deleted successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async searchItems(req: Request, res: Response, next: NextFunction) {
+  async searchItems(req: Request, res: Response) {
     try {
       const { query } = req.query;
       const items = await this.itemService.searchItems(query as string);
-      res.json(items);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { items },
+        "Items searched successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 }

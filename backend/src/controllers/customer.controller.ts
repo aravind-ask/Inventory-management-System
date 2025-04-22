@@ -1,8 +1,9 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { CustomerService } from "../services/customer.service";
 import { validationResult } from "express-validator";
 import { BadRequestError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
 
 export class CustomerController {
   private customerService: CustomerService;
@@ -11,33 +12,49 @@ export class CustomerController {
     this.customerService = new CustomerService();
   }
 
-  async createCustomer(req: AuthRequest, res: Response, next: NextFunction) {
+  async createCustomer(req: AuthRequest, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const customer = await this.customerService.createCustomer(req.body);
-      res.status(201).json(customer);
+      return responseHandler(
+        res,
+        HttpStatus.CREATED,
+        { customer },
+        "Customer created successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async getCustomer(req: Request, res: Response, next: NextFunction) {
+  async getCustomer(req: Request, res: Response) {
     try {
       const customer = await this.customerService.getCustomer(req.params.id);
-      res.json(customer);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { customer },
+        "Customer retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async getAllCustomers(req: Request, res: Response, next: NextFunction) {
+  async getAllCustomers(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
@@ -48,21 +65,29 @@ export class CustomerController {
         search: search as string,
         sort: sort as string,
       });
-      res.json({
-        customers: result.customers,
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages,
-      });
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        {
+          customers: result.customers,
+          total: result.total,
+          page: result.page,
+          totalPages: result.totalPages,
+        },
+        "Customers retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async updateCustomer(req: Request, res: Response, next: NextFunction) {
+  async updateCustomer(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
@@ -70,18 +95,28 @@ export class CustomerController {
         req.params.id,
         req.body
       );
-      res.json(customer);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { customer },
+        "Customer updated successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async deleteCustomer(req: Request, res: Response, next: NextFunction) {
+  async deleteCustomer(req: Request, res: Response) {
     try {
       await this.customerService.deleteCustomer(req.params.id);
-      res.status(204).send();
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        {},
+        "Customer deleted successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 }

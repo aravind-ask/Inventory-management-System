@@ -1,8 +1,9 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { SaleService } from "../services/sales.service";
 import { validationResult } from "express-validator";
 import { BadRequestError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
+import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
 
 export class SaleController {
   private saleService: SaleService;
@@ -11,33 +12,49 @@ export class SaleController {
     this.saleService = new SaleService();
   }
 
-  async createSale(req: AuthRequest, res: Response, next: NextFunction) {
+  async createSale(req: AuthRequest, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
       const sale = await this.saleService.createSale(req.body);
-      res.status(201).json(sale);
+      return responseHandler(
+        res,
+        HttpStatus.CREATED,
+        { sale },
+        "Sale created successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async getSale(req: Request, res: Response, next: NextFunction) {
+  async getSale(req: Request, res: Response) {
     try {
       const sale = await this.saleService.getSale(req.params.id);
-      res.json(sale);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { sale },
+        "Sale retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async getAllSales(req: Request, res: Response, next: NextFunction) {
+  async getAllSales(req: Request, res: Response) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return next(new BadRequestError("Validation failed", errors.array()));
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
     }
 
     try {
@@ -59,24 +76,34 @@ export class SaleController {
         endDate: endDate as string | undefined,
         customerId: customerId as string | undefined,
       });
-      res.json({
-        sales: result.sales,
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages,
-      });
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        {
+          sales: result.sales,
+          total: result.total,
+          page: result.page,
+          totalPages: result.totalPages,
+        },
+        "Sales retrieved successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 
-  async searchSales(req: Request, res: Response, next: NextFunction) {
+  async searchSales(req: Request, res: Response) {
     try {
       const { query } = req.query;
       const sales = await this.saleService.searchSales(query as string);
-      res.json(sales);
+      return responseHandler(
+        res,
+        HttpStatus.OK,
+        { sales },
+        "Sales searched successfully"
+      );
     } catch (err) {
-      next(err);
+      return errorHandler(res, err);
     }
   }
 }

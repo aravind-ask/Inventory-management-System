@@ -46,7 +46,7 @@ router.get(
   itemController.searchItems.bind(itemController)
 );
 router.get("/:id", authMiddleware, itemController.getItem.bind(itemController));
-router.put(
+router.patch(
   "/:id",
   authMiddleware,
   [
