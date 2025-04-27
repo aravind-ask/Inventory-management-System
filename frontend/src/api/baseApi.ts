@@ -6,9 +6,9 @@ import {
   FetchBaseQueryError,
 } from "@reduxjs/toolkit/query/react";
 import type { RootState } from "../store";
+import { setCredentials } from "../features/auth/authSlice";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
-
 
 export const baseQuery = fetchBaseQuery({
   baseUrl: `${BASE_URL}/api`,
@@ -52,18 +52,31 @@ export const baseQueryWithReauth: BaseQueryFn<
 
     if (refreshResult.data) {
       const { accessToken } = refreshResult.data as { accessToken: string };
+      const user = (api.getState() as RootState).auth.user;
       console.log("Refresh successful. New access token:", accessToken);
-      const retryArgs =
-        typeof args === "string"
-          ? args
-          : {
-              ...args,
-              headers: {
-                ...args.headers,
-                Authorization: `Bearer ${accessToken}`,
-              },
-            };
-      result = await baseQuery(retryArgs, api, extraOptions);
+
+      api.dispatch(
+        setCredentials({
+          accessToken,
+          refreshToken,
+          user: user || { id: "", name: "", email: "", role: "" },
+        })
+      );
+
+      const updatedToken = (api.getState() as RootState).auth.accessToken;
+      console.log("Updated access token in state:", updatedToken);
+
+      // const retryArgs =
+      //   typeof args === "string"
+      //     ? args
+      //     : {
+      //         ...args,
+      //         headers: {
+      //           ...args.headers,
+      //           Authorization: `Bearer ${accessToken}`,
+      //         },
+      //       };
+      result = await baseQuery(args, api, extraOptions);
     } else {
       console.log("Refresh failed:", refreshResult.error);
       return { error: { status: 401, data: "Refresh token invalid" } };

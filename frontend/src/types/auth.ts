@@ -4,7 +4,7 @@ export interface LoginCredentials {
 }
 
 export interface RegisterCredentials {
-  name: string
+  name: string;
   email: string;
   password: string;
 }
@@ -14,6 +14,8 @@ export interface AuthResponse {
   refreshToken: string;
   user: {
     id: string;
+    name: string;
     email: string;
+    role: string;
   };
 }

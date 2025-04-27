@@ -59,7 +59,11 @@ export const authSlice = createSlice({
           state.user = parsedAuth.user || null;
           state.accessToken = parsedAuth.accessToken || null;
           state.refreshToken = parsedAuth.refreshToken || null;
-          console.log("Loaded auth state:", parsedAuth);
+          console.log("Loaded auth state:", {
+            user: state.user,
+            accessToken: state.accessToken,
+            refreshToken: state.refreshToken,
+          });
         }
       } catch (error) {
         console.error("Error loading auth from localStorage:", error);

@@ -1,7 +1,6 @@
 import { baseApi } from "./baseApi";
 import { setCredentials, logout } from "../features/auth/authSlice";
 import toast from "react-hot-toast";
-import type { RootState } from "../store";
 
 export interface LoginCredentials {
   email: string;
@@ -70,26 +69,10 @@ export const authApi = baseApi.injectEndpoints({
         method: "POST",
         body,
       }),
-      async onQueryStarted(
-        { refreshToken },
-        { dispatch, queryFulfilled, getState }
-      ) {
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
         try {
-          const { data } = await queryFulfilled;
-          const user = (getState() as RootState).auth.user;
-          if (user) {
-            dispatch(
-              setCredentials({
-                accessToken: data.accessToken,
-                refreshToken,
-                user,
-              })
-            );
-            console.log("Token refreshed successfully");
-          } else {
-            dispatch(logout());
-            toast.error("User data missing. Please sign in again.");
-          }
+          await queryFulfilled;
+          console.log("Refresh mutation completed");
         } catch (error) {
           console.error("Refresh token failed:", error);
           dispatch(logout());
