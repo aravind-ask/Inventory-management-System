@@ -1,9 +1,12 @@
-import { SaleRepository } from "../repositories/sales.repository";
-import { ItemRepository } from "../repositories/item.repository";
-import Sale, { ISale } from "../models/sales.model";
-import Item, { IItem } from "../models/item.model";
+import {
+  GetAllSalesParams,
+} from "../repositories/sales.repository";
+import { ISale } from "../models/sales.model";
+import { IDashboardService } from "./interfaces/IDashboardService";
+import { ISaleRepository } from "../repositories/interfaces/ISalesRepository";
+import { IItemRepository } from "../repositories/interfaces/IItemRepository";
 
-interface DashboardData {
+export interface DashboardData {
   totalSales: number;
   totalRevenue: number;
   inventoryStatus: {
@@ -13,36 +16,59 @@ interface DashboardData {
   recentCustomerLedger: ISale[];
 }
 
-export class DashboardService {
-  private saleRepository: SaleRepository;
-  private itemRepository: ItemRepository;
+export interface DashboardQueryParams {
+  startDate?: string;
+  endDate?: string;
+}
 
-  constructor() {
-    this.saleRepository = new SaleRepository(Sale);
-    this.itemRepository = new ItemRepository(Item);
+
+
+export class DashboardService implements IDashboardService {
+  private saleRepository: ISaleRepository;
+  private itemRepository: IItemRepository;
+
+  constructor(
+    saleRepository: ISaleRepository,
+    itemRepository: IItemRepository
+  ) {
+    this.saleRepository = saleRepository;
+    this.itemRepository = itemRepository;
   }
 
-  async getDashboardData(): Promise<DashboardData> {
-    // Total Sales and Revenue
-    const salesResult = await this.saleRepository.findAll();
-    const totalSales = salesResult.length;
-    const totalRevenue = salesResult.reduce((sum, sale) => {
+  async getDashboardData(
+    params: DashboardQueryParams = {}
+  ): Promise<DashboardData> {
+    const { startDate, endDate } = params;
+
+    const salesParams: GetAllSalesParams = {
+      page: 1,
+      limit: Number.MAX_SAFE_INTEGER,
+      search: "",
+      sort: "",
+      startDate,
+      endDate,
+    };
+    const salesResult = await this.saleRepository.getAllSales(salesParams);
+    const totalSales = salesResult.total;
+    const totalRevenue = salesResult.sales.reduce((sum, sale) => {
       const itemPrice = (sale.itemId as any)?.price || 0;
       return sum + sale.quantity * itemPrice;
     }, 0);
 
-    // Inventory Status
     const items = await this.itemRepository.findAll();
     const totalItems = items.length;
-    const lowStockItems = items.filter((item) => item.quantity < 10).length; // Threshold: 10
+    const lowStockItems = items.filter((item) => item.quantity < 10).length; 
 
-    // Recent Customer Ledger (last 5 sales)
-    const recentCustomerLedger = await this.saleRepository.getAllSales({
+    const ledgerParams: GetAllSalesParams = {
       page: 1,
       limit: 5,
       search: "",
-      sort: "-date", // Most recent first
-    });
+      sort: "-date",
+      startDate,
+      endDate,
+    };
+    const recentCustomerLedger =
+      await this.saleRepository.getAllSales(ledgerParams);
 
     return {
       totalSales,

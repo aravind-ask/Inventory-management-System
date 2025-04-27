@@ -1,8 +1,10 @@
-import { Model, FilterQuery, PaginateModel, PaginateResult } from "mongoose";
-import IRepository from "./base.repository";
+import { FilterQuery, PaginateModel, PaginateResult } from "mongoose";
+import { BaseRepository } from "./base.repository";
 import { IItem } from "../models/item.model";
+import { IItemRepository } from "./interfaces/IItemRepository";
+import { ISaleRepository } from "./interfaces/ISalesRepository";
 
-interface GetAllItemsParams {
+export interface GetAllItemsParams {
   page: number;
   limit: number;
   search: string;
@@ -11,34 +13,34 @@ interface GetAllItemsParams {
   endDate?: string;
 }
 
-interface GetAllItemsResult {
+export interface GetAllItemsResult {
   items: IItem[];
   total: number;
   page: number;
   totalPages: number;
 }
 
-export class ItemRepository implements IRepository<IItem> {
-  private model: PaginateModel<IItem>;
+export interface ItemsSummary {
+  totalInventoryValue: number;
+  totalItems: number;
+  averagePrice: number;
+  lowStockItems: number;
+  turnoverRate: { name: string; rate: number }[];
+}
 
-  constructor(model: PaginateModel<IItem>) {
-    this.model = model;
-  }
 
-  async create(data: Partial<IItem>): Promise<IItem> {
-    return this.model.create(data);
-  }
 
-  async findById(id: string): Promise<IItem | null> {
-    return this.model.findById(id).populate("createdBy", "email").exec();
-  }
+export class ItemRepository
+  extends BaseRepository<IItem>
+  implements IItemRepository
+{
+  private paginateModel: PaginateModel<IItem>;
+  private saleRepository: ISaleRepository;
 
-  async findOne(query: FilterQuery<IItem>): Promise<IItem | null> {
-    return this.model.findOne(query).populate("createdBy", "email").exec();
-  }
-
-  async findAll(query: FilterQuery<IItem> = {}): Promise<IItem[]> {
-    return this.model.find(query).populate("createdBy", "email").exec();
+  constructor(model: PaginateModel<IItem>, saleRepository: ISaleRepository) {
+    super(model);
+    this.paginateModel = model;
+    this.saleRepository = saleRepository;
   }
 
   async getAllItems(params: GetAllItemsParams): Promise<GetAllItemsResult> {
@@ -54,21 +56,24 @@ export class ItemRepository implements IRepository<IItem> {
       : {};
 
     if (startDate || endDate) {
-      query.date = {};
-      if (startDate) query.date.$gte = new Date(startDate);
-      if (endDate) query.date.$lte = new Date(endDate);
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
     const sortOption = sort
       ? { [sort.replace("-", "")]: sort.startsWith("-") ? -1 : 1 }
       : { createdAt: -1 };
 
-    const result: PaginateResult<IItem> = await this.model.paginate(query, {
-      page,
-      limit,
-      sort: sortOption,
-      populate: { path: "createdBy", select: "email" },
-    });
+    const result: PaginateResult<IItem> = await this.paginateModel.paginate(
+      query,
+      {
+        page,
+        limit,
+        sort: sortOption,
+        populate: { path: "createdBy", select: "email" },
+      }
+    );
 
     return {
       items: result.docs,
@@ -78,16 +83,66 @@ export class ItemRepository implements IRepository<IItem> {
     };
   }
 
-  async update(id: string, data: Partial<IItem>): Promise<IItem | null> {
-    return this.model
-      .findByIdAndUpdate(id, data, { new: true })
-      .populate("createdBy", "email")
-      .exec();
-  }
+  async getItemsSummary(
+    params: Omit<GetAllItemsParams, "page" | "limit">
+  ): Promise<ItemsSummary> {
+    const { search, startDate, endDate } = params;
 
-  async delete(id: string): Promise<boolean> {
-    const result = await this.model.findByIdAndDelete(id).exec();
-    return !!result;
+    const query: FilterQuery<IItem> = search
+      ? {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { description: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const items = await this.model.find(query).exec();
+
+    const totalInventoryValue = items.reduce(
+      (sum, item) => sum + item.quantity * item.price,
+      0
+    );
+    const totalItems = items.length;
+    const averagePrice =
+      totalItems > 0
+        ? items.reduce((sum, item) => sum + item.price, 0) / totalItems
+        : 0;
+    const lowStockItems = items.filter((item) => item.quantity < 10).length;
+
+    const sales = await this.saleRepository.findAll({
+      ...(startDate && { date: { $gte: new Date(startDate) } }),
+      ...(endDate && { date: { $lte: new Date(endDate) } }),
+    });
+    const salesMap = new Map<string, number>();
+    sales.forEach((sale) => {
+      const itemId = (sale.itemId as any)?._id?.toString();
+      if (itemId) {
+        salesMap.set(itemId, (salesMap.get(itemId) || 0) + sale.quantity);
+      }
+    });
+    const turnoverRate = items
+      .map((item) => {
+        const salesQty = salesMap.get(item._id.toString()) || 0;
+        const rate = item.quantity > 0 ? salesQty / item.quantity : 0;
+        return { name: item.name, rate };
+      })
+      .sort((a, b) => b.rate - a.rate)
+      .slice(0, 5);
+
+    return {
+      totalInventoryValue,
+      totalItems,
+      averagePrice,
+      lowStockItems,
+      turnoverRate,
+    };
   }
 
   async search(query: string): Promise<IItem[]> {
@@ -98,6 +153,7 @@ export class ItemRepository implements IRepository<IItem> {
           { description: { $regex: query, $options: "i" } },
         ],
       })
+      .select("name description quantity price")
       .populate("createdBy", "email")
       .exec();
   }

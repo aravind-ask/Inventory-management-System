@@ -1,18 +1,28 @@
 import { Request, Response } from "express";
-import { AuthService } from "../services/auth.service";
-import { validationResult } from "express-validator";
+import { check, validationResult } from "express-validator";
 import { BadRequestError, UnauthorizedError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
+import {
+  responseHandler,
+  errorHandler,
+  HttpStatus,
+} from "../utils/responseHandlers";
+import {  LoginResponse } from "../services/auth.service";
+import { IAuthService } from "../services/interfaces/IAuthService";
 
 export class AuthController {
-  private authService: AuthService;
+  private authService: IAuthService;
 
-  constructor() {
-    this.authService = new AuthService();
+  constructor(authService: IAuthService) {
+    this.authService = authService;
   }
 
   async login(req: Request, res: Response) {
+    await Promise.all([
+      check("email").isEmail().withMessage("Invalid email").run(req),
+      check("password").notEmpty().withMessage("Password is required").run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -23,7 +33,10 @@ export class AuthController {
 
     try {
       const { email, password } = req.body;
-      const loginData = await this.authService.login(email, password);
+      const loginData: LoginResponse = await this.authService.login(
+        email,
+        password
+      );
       return responseHandler(res, HttpStatus.OK, loginData, "Login successful");
     } catch (err) {
       return errorHandler(res, err);
@@ -31,6 +44,15 @@ export class AuthController {
   }
 
   async register(req: Request, res: Response) {
+    await Promise.all([
+      check("email").isEmail().withMessage("Invalid email").run(req),
+      check("name").notEmpty().withMessage("Name is required").run(req),
+      check("password")
+        .isLength({ min: 6 })
+        .withMessage("Password must be at least 6 characters")
+        .run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -40,8 +62,8 @@ export class AuthController {
     }
 
     try {
-      const { email, password } = req.body;
-      const user = await this.authService.register(email, password);
+      const { email, name, password } = req.body;
+      const user = await this.authService.register(email, name, password);
       return responseHandler(
         res,
         HttpStatus.CREATED,
@@ -54,6 +76,11 @@ export class AuthController {
   }
 
   async refreshToken(req: Request, res: Response) {
+    await check("refreshToken")
+      .notEmpty()
+      .withMessage("Refresh token is required")
+      .run(req);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(

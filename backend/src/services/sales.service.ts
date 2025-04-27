@@ -1,33 +1,23 @@
-import { SaleRepository } from "../repositories/sales.repository";
-import { ItemRepository } from "../repositories/item.repository";
-import Sale, { ISale } from "../models/sales.model";
-import Item from "../models/item.model";
+import { ISale } from "../models/sales.model";
+import { IItemRepository } from "../repositories/interfaces/IItemRepository";
+import { ISaleRepository } from "../repositories/interfaces/ISalesRepository";
+import {
+  GetAllSalesParams,
+  GetAllSalesResult,
+} from "../repositories/sales.repository";
 import { BadRequestError, NotFoundError } from "../utils/errors";
+import { ISaleService } from "./interfaces/ISaleService";
 
-interface GetAllSalesParams {
-  page: number;
-  limit: number;
-  search: string;
-  sort: string;
-  startDate?: string;
-  endDate?: string;
-  customerId?: string;
-}
+export class SaleService implements ISaleService {
+  private saleRepository: ISaleRepository;
+  private itemRepository: IItemRepository;
 
-interface GetAllSalesResult {
-  sales: ISale[];
-  total: number;
-  page: number;
-  totalPages: number;
-}
-
-export class SaleService {
-  private saleRepository: SaleRepository;
-  private itemRepository: ItemRepository;
-
-  constructor() {
-    this.saleRepository = new SaleRepository(Sale);
-    this.itemRepository = new ItemRepository(Item);
+  constructor(
+    saleRepository: ISaleRepository,
+    itemRepository: IItemRepository
+  ) {
+    this.saleRepository = saleRepository;
+    this.itemRepository = itemRepository;
   }
 
   async createSale(data: Partial<ISale>): Promise<ISale> {
@@ -36,7 +26,7 @@ export class SaleService {
       throw new BadRequestError("Missing required fields");
     }
 
-    const item = await this.itemRepository.findById(itemId as string);
+    const item = await this.itemRepository.findById(itemId.toString());
     if (!item) {
       throw new NotFoundError("Item not found");
     }
@@ -44,8 +34,7 @@ export class SaleService {
       throw new BadRequestError("Insufficient stock");
     }
 
-    // Update item quantity
-    await this.itemRepository.update(itemId as string, {
+    await this.itemRepository.update(itemId.toString(), {
       quantity: item.quantity - quantity,
     });
 
@@ -61,17 +50,7 @@ export class SaleService {
   }
 
   async getAllSales(params: GetAllSalesParams): Promise<GetAllSalesResult> {
-    const { page, limit, search, sort, startDate, endDate, customerId } =
-      params;
-    return this.saleRepository.getAllSales({
-      page,
-      limit,
-      search,
-      sort,
-      startDate,
-      endDate,
-      customerId,
-    });
+    return this.saleRepository.getAllSales(params);
   }
 
   async searchSales(query: string): Promise<ISale[]> {

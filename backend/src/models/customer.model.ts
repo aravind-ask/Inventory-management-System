@@ -1,11 +1,14 @@
-import mongoose, { Schema, Document, PaginateModel } from "mongoose";
+import mongoose, { Schema, Document, PaginateModel, Types } from "mongoose";
 import mongoosePaginate from "mongoose-paginate-v2";
 
 export interface ICustomer extends Document {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   address: string;
   phone: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const CustomerSchema = new Schema<ICustomer>(

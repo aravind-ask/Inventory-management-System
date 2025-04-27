@@ -1,18 +1,32 @@
 import { Request, Response } from "express";
-import { CustomerService } from "../services/customer.service";
-import { validationResult } from "express-validator";
+import { check, validationResult } from "express-validator";
 import { BadRequestError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
+import {
+  responseHandler,
+  errorHandler,
+  HttpStatus,
+} from "../utils/responseHandlers";
+import { ICustomerService } from "../services/interfaces/ICustomerInterface";
 
 export class CustomerController {
-  private customerService: CustomerService;
+  private customerService: ICustomerService;
 
-  constructor() {
-    this.customerService = new CustomerService();
+  constructor(customerService: ICustomerService) {
+    this.customerService = customerService;
   }
 
   async createCustomer(req: AuthRequest, res: Response) {
+    // Define validation rules
+    await Promise.all([
+      check("name").notEmpty().withMessage("Name is required").run(req),
+      check("address").notEmpty().withMessage("Address is required").run(req),
+      check("phone")
+        .isMobilePhone("any")
+        .withMessage("Invalid mobile number")
+        .run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -49,6 +63,22 @@ export class CustomerController {
   }
 
   async getAllCustomers(req: Request, res: Response) {
+    // Define validation rules
+    await Promise.all([
+      check("page")
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage("Page must be a positive integer")
+        .run(req),
+      check("limit")
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage("Limit must be a positive integer")
+        .run(req),
+      check("search").optional().isString().trim().run(req),
+      check("sort").optional().isString().trim().run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -58,7 +88,7 @@ export class CustomerController {
     }
 
     try {
-      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const { page = "1", limit = "10", search = "", sort = "" } = req.query;
       const result = await this.customerService.getAllCustomers({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
@@ -82,6 +112,25 @@ export class CustomerController {
   }
 
   async updateCustomer(req: Request, res: Response) {
+    // Define validation rules
+    await Promise.all([
+      check("name")
+        .optional()
+        .notEmpty()
+        .withMessage("Name cannot be empty")
+        .run(req),
+      check("address")
+        .optional()
+        .notEmpty()
+        .withMessage("Address cannot be empty")
+        .run(req),
+      check("phone")
+        .optional()
+        .isMobilePhone("any")
+        .withMessage("Invalid mobile number")
+        .run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(

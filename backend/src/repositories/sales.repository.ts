@@ -1,8 +1,9 @@
-import { Model, FilterQuery, PaginateModel, PaginateResult } from "mongoose";
-import IRepository from "./base.repository";
+import { FilterQuery, PaginateModel, PaginateResult } from "mongoose";
+import { BaseRepository } from "./base.repository";
 import { ISale } from "../models/sales.model";
+import { ISaleRepository } from "./interfaces/ISalesRepository";
 
-interface GetAllSalesParams {
+export interface GetAllSalesParams {
   page: number;
   limit: number;
   search: string;
@@ -12,34 +13,32 @@ interface GetAllSalesParams {
   customerId?: string;
 }
 
-interface GetAllSalesResult {
+export interface GetAllSalesResult {
   sales: ISale[];
   total: number;
   page: number;
   totalPages: number;
 }
 
-export class SaleRepository implements IRepository<ISale> {
-  private model: PaginateModel<ISale>;
+export interface SalesSummary {
+  totalRevenue: number;
+  totalSales: number;
+  averageSalePrice: number;
+  topItems: { name: string; quantity: number; revenue: number }[];
+  salesByDate: { date: string; total: number; revenue: number }[];
+  paymentTypeBreakdown?: { type: string; count: number; percentage: number }[];
+}
+
+
+export class SaleRepository
+  extends BaseRepository<ISale>
+  implements ISaleRepository
+{
+  private paginateModel: PaginateModel<ISale>;
 
   constructor(model: PaginateModel<ISale>) {
-    this.model = model;
-  }
-
-  async create(data: Partial<ISale>): Promise<ISale> {
-    return this.model.create(data);
-  }
-
-  async findById(id: string): Promise<ISale | null> {
-    return this.model.findById(id).populate("itemId customerId").exec();
-  }
-
-  async findOne(query: FilterQuery<ISale>): Promise<ISale | null> {
-    return this.model.findOne(query).populate("itemId customerId").exec();
-  }
-
-  async findAll(query: FilterQuery<ISale> = {}): Promise<ISale[]> {
-    return this.model.find(query).populate("itemId customerId").exec();
+    super(model);
+    this.paginateModel = model;
   }
 
   async getAllSales(params: GetAllSalesParams): Promise<GetAllSalesResult> {
@@ -68,39 +67,18 @@ export class SaleRepository implements IRepository<ISale> {
       ? { [sort.replace("-", "")]: sort.startsWith("-") ? -1 : 1 }
       : { createdAt: -1 };
 
-    // Enhanced debug logging
-    console.log("SaleRepository.getAllSales Params:", {
-      page,
-      limit,
-      search,
-      sort,
-      startDate,
-      endDate,
-      customerId,
-    });
-    console.log(
-      "SaleRepository.getAllSales Query:",
-      JSON.stringify(query, null, 2)
+    const result: PaginateResult<ISale> = await this.paginateModel.paginate(
+      query,
+      {
+        page,
+        limit,
+        sort: sortOption,
+        populate: [
+          { path: "itemId", select: "name price" },
+          { path: "customerId", select: "name", strictPopulate: false },
+        ],
+      }
     );
-
-    const result: PaginateResult<ISale> = await this.model.paginate(query, {
-      page,
-      limit,
-      sort: sortOption,
-      populate: [
-        { path: "itemId", select: "name" },
-        { path: "customerId", select: "name", strictPopulate: false }, // Allow missing customerId
-      ],
-    });
-
-    // Log populated data
-    console.log("SaleRepository.getAllSales Result:", {
-      docs: result.docs.length,
-      totalDocs: result.totalDocs,
-      page: result.page,
-      totalPages: result.totalPages,
-      sampleDoc: result.docs.length ? result.docs[0] : null,
-    });
 
     return {
       sales: result.docs,
@@ -110,16 +88,105 @@ export class SaleRepository implements IRepository<ISale> {
     };
   }
 
-  async update(id: string, data: Partial<ISale>): Promise<ISale | null> {
-    return this.model
-      .findByIdAndUpdate(id, data, { new: true })
-      .populate("itemId customerId")
-      .exec();
-  }
+  async getSalesSummary(
+    params: Omit<GetAllSalesParams, "page" | "limit">
+  ): Promise<SalesSummary> {
+    const { search, sort, startDate, endDate, customerId } = params;
+    const query: FilterQuery<ISale> = {};
 
-  async delete(id: string): Promise<boolean> {
-    const result = await this.model.findByIdAndDelete(id).exec();
-    return !!result;
+    if (search) {
+      query.$or = [
+        { "itemId.name": { $regex: search, $options: "i" } },
+        { "customerId.name": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (startDate || endDate) {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+    }
+
+    if (customerId) {
+      query.customerId = customerId;
+    }
+
+    const sales = await this.model
+      .find(query)
+      .populate({ path: "itemId", select: "name price" })
+      .exec();
+
+    const totalRevenue = sales.reduce((sum, sale) => {
+      const item = sale.itemId as any;
+      return sum + sale.quantity * (item?.price || 0);
+    }, 0);
+    const totalSales = sales.length;
+    const averageSalePrice = totalSales > 0 ? totalRevenue / totalSales : 0;
+
+    const itemMap = new Map<
+      string,
+      { name: string; quantity: number; revenue: number }
+    >();
+    sales.forEach((sale) => {
+      const item = sale.itemId as any;
+      if (!item) return;
+      const key = item._id.toString();
+      const current = itemMap.get(key) || {
+        name: item.name,
+        quantity: 0,
+        revenue: 0,
+      };
+      current.quantity += sale.quantity;
+      current.revenue += sale.quantity * item.price;
+      itemMap.set(key, current);
+    });
+    const topItems = Array.from(itemMap.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
+
+    const salesByDateMap = new Map<
+      string,
+      { total: number; revenue: number }
+    >();
+    sales.forEach((sale) => {
+      const item = sale.itemId as any;
+      if (!item) return;
+      const date = new Date(sale.date).toISOString().split("T")[0];
+      const current = salesByDateMap.get(date) || { total: 0, revenue: 0 };
+      current.total += sale.quantity;
+      current.revenue += sale.quantity * item.price;
+      salesByDateMap.set(date, current);
+    });
+    const salesByDate = Array.from(salesByDateMap.entries())
+      .map(([date, { total, revenue }]) => ({ date, total, revenue }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    let paymentTypeBreakdown;
+    if (customerId) {
+      const paymentTypes = sales.reduce(
+        (acc, sale) => {
+          acc[sale.paymentType] = (acc[sale.paymentType] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+      paymentTypeBreakdown = Object.entries(paymentTypes).map(
+        ([type, count]) => ({
+          type,
+          count,
+          percentage: totalSales > 0 ? (count / totalSales) * 100 : 0,
+        })
+      );
+    }
+
+    return {
+      totalRevenue,
+      totalSales,
+      averageSalePrice,
+      topItems,
+      salesByDate,
+      ...(paymentTypeBreakdown && { paymentTypeBreakdown }),
+    };
   }
 
   async search(query: string): Promise<ISale[]> {
@@ -177,6 +244,7 @@ export class SaleRepository implements IRepository<ISale> {
             createdAt: 1,
             updatedAt: 1,
             "itemId.name": "$item.name",
+            "itemId.price": "$item.price",
             "customerId.name": "$customer.name",
           },
         },
@@ -185,7 +253,9 @@ export class SaleRepository implements IRepository<ISale> {
 
     return sales.map((sale) => ({
       ...sale,
-      itemId: sale.itemId ? { _id: sale.itemId, name: sale.itemId.name } : null,
+      itemId: sale.itemId
+        ? { _id: sale.itemId, name: sale.itemId.name, price: sale.itemId.price }
+        : null,
       customerId: sale.customerId
         ? { _id: sale.customerId, name: sale.customerId.name }
         : null,

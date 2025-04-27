@@ -12,7 +12,7 @@ import saleRoutes from "./routes/sales.routes";
 import reportRoutes from "./routes/report.routes";
 import { errorMiddleware } from "./middlewares/error.middleware";
 
-dotenv.config();
+dotenv.config({ path: ".env" });
 
 const app = express();
 
@@ -39,8 +39,13 @@ app.use("/api/reports", reportRoutes);
 app.use(errorMiddleware);
 
 // Database connection
+const mongoUri = process.env.MONGO_URI;
+if (!mongoUri) {
+  throw new Error("MONGO_URI is not defined");
+}
+
 mongoose
-  .connect(process.env.MONGO_URI!)
+  .connect(mongoUri)
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB connection error:", err));
 

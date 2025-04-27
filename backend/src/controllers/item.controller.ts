@@ -1,18 +1,39 @@
 import { Request, Response } from "express";
-import { ItemService } from "../services/item.service";
-import { validationResult } from "express-validator";
+import { check, validationResult } from "express-validator";
 import { BadRequestError } from "../utils/errors";
 import { AuthRequest } from "../middlewares/auth.middleware";
-import { responseHandler, errorHandler, HttpStatus } from "../utils/responseHandlers";
+import {
+  responseHandler,
+  errorHandler,
+  HttpStatus,
+} from "../utils/responseHandlers";
+import { IItemService } from "../services/interfaces/IItemService";
 
 export class ItemController {
-  private itemService: ItemService;
+  private itemService: IItemService;
 
-  constructor() {
-    this.itemService = new ItemService();
+  constructor(itemService: IItemService) {
+    this.itemService = itemService;
   }
 
   async createItem(req: AuthRequest, res: Response) {
+    // Define validation rules
+    await Promise.all([
+      check("name").notEmpty().withMessage("Name is required").run(req),
+      check("description")
+        .notEmpty()
+        .withMessage("Description is required")
+        .run(req),
+      check("quantity")
+        .isInt({ min: 0 })
+        .withMessage("Quantity must be a non-negative integer")
+        .run(req),
+      check("price")
+        .isFloat({ min: 0 })
+        .withMessage("Price must be a non-negative number")
+        .run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -49,6 +70,22 @@ export class ItemController {
   }
 
   async getAllItems(req: Request, res: Response) {
+    // Define validation rules
+    await Promise.all([
+      check("page")
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage("Page must be a positive integer")
+        .run(req),
+      check("limit")
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage("Limit must be a positive integer")
+        .run(req),
+      check("search").optional().isString().trim().run(req),
+      check("sort").optional().isString().trim().run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -58,7 +95,7 @@ export class ItemController {
     }
 
     try {
-      const { page = 1, limit = 10, search = "", sort = "" } = req.query;
+      const { page = "1", limit = "10", search = "", sort = "" } = req.query;
       const result = await this.itemService.getAllItems({
         page: parseInt(page as string),
         limit: parseInt(limit as string),
@@ -82,6 +119,30 @@ export class ItemController {
   }
 
   async updateItem(req: Request, res: Response) {
+    // Define validation rules
+    await Promise.all([
+      check("name")
+        .optional()
+        .notEmpty()
+        .withMessage("Name cannot be empty")
+        .run(req),
+      check("description")
+        .optional()
+        .notEmpty()
+        .withMessage("Description cannot be empty")
+        .run(req),
+      check("quantity")
+        .optional()
+        .isInt({ min: 0 })
+        .withMessage("Quantity must be a non-negative integer")
+        .run(req),
+      check("price")
+        .optional()
+        .isFloat({ min: 0 })
+        .withMessage("Price must be a non-negative number")
+        .run(req),
+    ]);
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return errorHandler(
@@ -118,6 +179,17 @@ export class ItemController {
   }
 
   async searchItems(req: Request, res: Response) {
+    // Define validation rules
+    await check("query").notEmpty().withMessage("Query is required").run(req);
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return errorHandler(
+        res,
+        new BadRequestError("Validation failed", errors.array())
+      );
+    }
+
     try {
       const { query } = req.query;
       const items = await this.itemService.searchItems(query as string);

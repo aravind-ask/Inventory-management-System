@@ -1,35 +1,36 @@
-import { ItemRepository } from "../repositories/item.repository";
-import Item, { IItem } from "../models/item.model";
+import { Types } from "mongoose";
+import { IItem } from "../models/item.model";
+import {
+  GetAllItemsParams,
+  GetAllItemsResult,
+} from "../repositories/item.repository";
 import { BadRequestError, NotFoundError } from "../utils/errors";
-import { AuthRequest } from "../middlewares/auth.middleware";
+import { IItemService } from "./interfaces/IItemService";
+import { IItemRepository } from "../repositories/interfaces/IItemRepository";
 
-interface GetAllItemsParams {
-  page: number;
-  limit: number;
-  search: string;
-  sort: string;
-}
 
-interface GetAllItemsResult {
-  items: IItem[];
-  total: number;
-  page: number;
-  totalPages: number;
-}
 
-export class ItemService {
-  private itemRepository: ItemRepository;
+export class ItemService implements IItemService {
+  private itemRepository: IItemRepository;
 
-  constructor() {
-    this.itemRepository = new ItemRepository(Item);
+  constructor(itemRepository: IItemRepository) {
+    this.itemRepository = itemRepository;
   }
 
   async createItem(data: Partial<IItem>, userId: string): Promise<IItem> {
     const { name, description, quantity, price } = data;
-    if (!name || !description || quantity == null || price == null) {
+    if (!name || quantity == null || price == null) {
       throw new BadRequestError("Missing required fields");
     }
-    return this.itemRepository.create({ ...data, createdBy: userId });
+
+    // Validate userId as a valid ObjectId
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new BadRequestError("Invalid user ID");
+    }
+
+    // Convert userId string to ObjectId
+    const createdBy = new Types.ObjectId(userId);
+    return this.itemRepository.create({ ...data, createdBy });
   }
 
   async getItem(id: string): Promise<IItem> {
@@ -41,8 +42,7 @@ export class ItemService {
   }
 
   async getAllItems(params: GetAllItemsParams): Promise<GetAllItemsResult> {
-    const { page, limit, search, sort } = params;
-    return this.itemRepository.getAllItems({ page, limit, search, sort });
+    return this.itemRepository.getAllItems(params);
   }
 
   async updateItem(id: string, data: Partial<IItem>): Promise<IItem> {
@@ -53,11 +53,8 @@ export class ItemService {
     return item;
   }
 
-  async deleteItem(id: string): Promise<void> {
-    const success = await this.itemRepository.delete(id);
-    if (!success) {
-      throw new NotFoundError("Item not found");
-    }
+  async deleteItem(id: string): Promise<boolean> {
+    return this.itemRepository.delete(id);
   }
 
   async searchItems(query: string): Promise<IItem[]> {

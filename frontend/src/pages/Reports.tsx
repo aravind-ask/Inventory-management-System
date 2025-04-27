@@ -9,11 +9,104 @@ import {
   useGetCustomerLedgerQuery,
   useExportReportMutation,
 } from "../api/reportsApi";
+import { Line, Bar, Pie } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface ReportFilter {
   startDate: string;
   endDate: string;
   customerId: string;
+}
+
+interface Sale {
+  _id: string;
+  itemId: { _id: string; name: string; price: number };
+  customerId?: { _id: string; name: string };
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  date: string;
+  paymentType: string;
+}
+
+interface Item {
+  _id: string;
+  name: string;
+  description: string;
+  quantity: number;
+  price: number;
+  totalValue: number;
+  createdBy: { email: string };
+}
+
+interface SalesSummary {
+  totalRevenue: number;
+  totalSales: number;
+  averageSalePrice: number;
+  topItems: { name: string; quantity: number; revenue: number }[];
+  salesByDate: { date: string; total: number; revenue: number }[];
+}
+
+interface ItemsSummary {
+  totalInventoryValue: number;
+  totalItems: number;
+  averagePrice: number;
+  lowStockItems: number;
+  turnoverRate: { name: string; rate: number }[];
+}
+
+interface LedgerSummary {
+  totalSpent: number;
+  totalTransactions: number;
+  averageTransactionValue: number;
+  paymentTypeBreakdown: { type: string; count: number; percentage: number }[];
+}
+
+interface SalesReport {
+  sales: Sale[];
+  total: number;
+  page: number;
+  totalPages: number;
+  summary: SalesSummary;
+}
+
+interface ItemsReport {
+  items: Item[];
+  total: number;
+  page: number;
+  totalPages: number;
+  summary: ItemsSummary;
+}
+
+interface LedgerReport {
+  ledger: Sale[];
+  total: number;
+  page: number;
+  totalPages: number;
+  summary: LedgerSummary;
 }
 
 const Reports = () => {
@@ -48,6 +141,8 @@ const Reports = () => {
       limit: pageSize,
       search: itemsSearch,
       sort: itemsSort,
+      startDate: watch("startDate"),
+      endDate: watch("endDate"),
     }
   );
   const { data: ledger, isLoading: ledgerLoading } = useGetCustomerLedgerQuery(
@@ -67,10 +162,10 @@ const Reports = () => {
 
     const content =
       type === "sales"
-        ? generateSalesPrintContent()
+        ? generateSalesPrintContent(salesReport)
         : type === "items"
-          ? generateItemsPrintContent()
-          : generateLedgerPrintContent();
+          ? generateItemsPrintContent(itemsReport)
+          : generateLedgerPrintContent(ledger);
 
     printWindow.document.write(`
       <html>
@@ -78,10 +173,12 @@ const Reports = () => {
           <title>${type.charAt(0).toUpperCase() + type.slice(1)} Report</title>
           <style>
             body { font-family: Inter, sans-serif; margin: 20px; }
-            h1 { color: #1E3A8A; }
-            table { width: 100%; border-collapse: collapse; }
+            h1, h2 { color: #1E3A8A; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
             th, td { border: 1px solid #E5E7EB; padding: 8px; text-align: left; }
             th { background-color: #F3F4F6; }
+            .summary { margin-top: 20px; }
+            .summary p { margin: 5px 0; }
             @media print { body { margin: 0; } }
           </style>
         </head>
@@ -94,7 +191,7 @@ const Reports = () => {
     printWindow.print();
   };
 
-  const generateSalesPrintContent = () => {
+  const generateSalesPrintContent = (report: SalesReport | undefined) => {
     return `
       <h1>Sales Report</h1>
       <table>
@@ -103,30 +200,51 @@ const Reports = () => {
             <th>Item</th>
             <th>Customer</th>
             <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Total Price</th>
             <th>Date</th>
             <th>Payment Type</th>
           </tr>
         </thead>
         <tbody>
-          ${salesReport?.data
-            ?.map(
-              (sale: any) => `
+          ${
+            report?.sales
+              ?.map(
+                (sale) => `
             <tr>
               <td>${sale.itemId.name}</td>
               <td>${sale.customerId?.name || "Cash"}</td>
               <td>${sale.quantity}</td>
+              <td>$${sale.unitPrice.toFixed(2)}</td>
+              <td>$${sale.totalPrice.toFixed(2)}</td>
               <td>${new Date(sale.date).toLocaleDateString()}</td>
               <td>${sale.paymentType}</td>
             </tr>
           `
-            )
-            .join("")}
+              )
+              .join("") || "<tr><td colspan='7'>No data</td></tr>"
+          }
         </tbody>
       </table>
+      <div class="summary">
+        <h2>Summary</h2>
+        <p>Total Revenue: $${report?.summary.totalRevenue.toFixed(2)}</p>
+        <p>Total Sales: ${report?.summary.totalSales}</p>
+        <p>Average Sale Price: $${report?.summary.averageSalePrice.toFixed(2)}</p>
+        <p>Top Items:</p>
+        <ul>
+          ${report?.summary.topItems
+            .map(
+              (item) =>
+                `<li>${item.name}: ${item.quantity} units, $${item.revenue.toFixed(2)}</li>`
+            )
+            .join("")}
+        </ul>
+      </div>
     `;
   };
 
-  const generateItemsPrintContent = () => {
+  const generateItemsPrintContent = (report: ItemsReport | undefined) => {
     return `
       <h1>Items Report</h1>
       <table>
@@ -136,29 +254,46 @@ const Reports = () => {
             <th>Description</th>
             <th>Quantity</th>
             <th>Price</th>
+            <th>Total Value</th>
             <th>Created By</th>
           </tr>
         </thead>
         <tbody>
-          ${itemsReport?.data
-            ?.map(
-              (item: any) => `
+          ${
+            report?.items
+              ?.map(
+                (item) => `
             <tr>
               <td>${item.name}</td>
               <td>${item.description}</td>
               <td>${item.quantity}</td>
               <td>$${item.price.toFixed(2)}</td>
+              <td>$${item.totalValue.toFixed(2)}</td>
               <td>${item.createdBy.email}</td>
             </tr>
           `
-            )
-            .join("")}
+              )
+              .join("") || "<tr><td colspan='6'>No data</td></tr>"
+          }
         </tbody>
       </table>
+      <div class="summary">
+        <h2>Summary</h2>
+        <p>Total Inventory Value: $${report?.summary.totalInventoryValue.toFixed(2)}</p>
+        <p>Total Items: ${report?.summary.totalItems}</p>
+        <p>Average Price: $${report?.summary.averagePrice.toFixed(2)}</p>
+        <p>Low Stock Items: ${report?.summary.lowStockItems}</p>
+        <p>Top Turnover Rates:</p>
+        <ul>
+          ${report?.summary.turnoverRate
+            .map((item) => `<li>${item.name}: ${item.rate.toFixed(2)}</li>`)
+            .join("")}
+        </ul>
+      </div>
     `;
   };
 
-  const generateLedgerPrintContent = () => {
+  const generateLedgerPrintContent = (report: LedgerReport | undefined) => {
     return `
       <h1>Customer Ledger</h1>
       <table>
@@ -166,25 +301,46 @@ const Reports = () => {
           <tr>
             <th>Item</th>
             <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Total Price</th>
             <th>Date</th>
             <th>Payment Type</th>
           </tr>
         </thead>
         <tbody>
-          ${ledger?.data
-            ?.map(
-              (sale: any) => `
+          ${
+            report?.ledger
+              ?.map(
+                (sale) => `
             <tr>
               <td>${sale.itemId.name}</td>
               <td>${sale.quantity}</td>
+              <td>$${sale.unitPrice.toFixed(2)}</td>
+              <td>$${sale.totalPrice.toFixed(2)}</td>
               <td>${new Date(sale.date).toLocaleDateString()}</td>
               <td>${sale.paymentType}</td>
             </tr>
           `
-            )
-            .join("")}
+              )
+              .join("") || "<tr><td colspan='6'>No data</td></tr>"
+          }
         </tbody>
       </table>
+      <div class="summary">
+        <h2>Summary</h2>
+        <p>Total Spent: $${report?.summary.totalSpent.toFixed(2)}</p>
+        <p>Total Transactions: ${report?.summary.totalTransactions}</p>
+        <p>Average Transaction Value: $${report?.summary.averageTransactionValue.toFixed(2)}</p>
+        <p>Payment Type Breakdown:</p>
+        <ul>
+          ${report?.summary.paymentTypeBreakdown
+            .map(
+              (pt) =>
+                `<li>${pt.type}: ${pt.count} (${pt.percentage.toFixed(2)}%)</li>`
+            )
+            .join("")}
+        </ul>
+      </div>
     `;
   };
 
@@ -221,13 +377,57 @@ const Reports = () => {
     setter(currentSort === field ? `-${field}` : field);
   };
 
+  // Chart data
+  const salesChartData = {
+    labels: salesReport?.summary.salesByDate.map((d) => d.date) || [],
+    datasets: [
+      {
+        label: "Revenue",
+        data: salesReport?.summary.salesByDate.map((d) => d.revenue) || [],
+        borderColor: "#4BC0C0",
+        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        fill: true,
+      },
+    ],
+  };
+
+  const itemsChartData = {
+    labels: itemsReport?.items.map((item) => item.name) || [],
+    datasets: [
+      {
+        label: "Total Value",
+        data: itemsReport?.items.map((item) => item.totalValue) || [],
+        backgroundColor: "#FF6384",
+      },
+    ],
+  };
+
+  const ledgerChartData = {
+    labels: ledger?.summary.paymentTypeBreakdown.map((pt) => pt.type) || [],
+    datasets: [
+      {
+        data:
+          ledger?.summary.paymentTypeBreakdown.map((pt) => pt.percentage) || [],
+        backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: "top" as const },
+      title: { display: true, text: "Report Analysis" },
+    },
+  };
+
   return (
     <div className="flex min-h-screen bg-neutral">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 p-8"
+        className="flex-1 p-4 sm:p-8"
       >
         <h1 className="text-2xl font-semibold mb-6 text-text">Reports</h1>
         <div className="mb-8">
@@ -235,7 +435,7 @@ const Reports = () => {
             <h2 className="text-lg font-medium mb-4 text-text">
               Filter Reports
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-text text-sm mb-1">
                   Start Date
@@ -322,6 +522,39 @@ const Reports = () => {
               <p className="text-text">Loading...</p>
             ) : (
               <>
+                <div className="mb-4">
+                  <h3 className="text-md font-medium text-text">Summary</h3>
+                  <p>
+                    Total Revenue: $
+                    {salesReport?.summary.totalRevenue.toFixed(2)}
+                  </p>
+                  <p>Total Sales: {salesReport?.summary.totalSales}</p>
+                  <p>
+                    Average Sale Price: $
+                    {salesReport?.summary.averageSalePrice.toFixed(2)}
+                  </p>
+                  <p>Top Items:</p>
+                  <ul className="list-disc pl-5">
+                    {salesReport?.summary.topItems.map((item) => (
+                      <li key={item.name}>
+                        {item.name}: {item.quantity} units, $
+                        {item.revenue.toFixed(2)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mb-4">
+                  <Line
+                    data={salesChartData}
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        title: { display: true, text: "Sales Trends" },
+                      },
+                    }}
+                  />
+                </div>
                 <table className="w-full text-sm text-text">
                   <thead>
                     <tr className="border-b">
@@ -366,6 +599,32 @@ const Reports = () => {
                       </th>
                       <th className="p-2 text-left">
                         <button
+                          onClick={() => handleSort("sales", "unitPrice")}
+                          className="hover:underline"
+                        >
+                          Unit Price{" "}
+                          {salesSort === "unitPrice"
+                            ? "↑"
+                            : salesSort === "-unitPrice"
+                              ? "↓"
+                              : ""}
+                        </button>
+                      </th>
+                      <th className="p-2 text-left">
+                        <button
+                          onClick={() => handleSort("sales", "totalPrice")}
+                          className="hover:underline"
+                        >
+                          Total Price{" "}
+                          {salesSort === "totalPrice"
+                            ? "↑"
+                            : salesSort === "-totalPrice"
+                              ? "↓"
+                              : ""}
+                        </button>
+                      </th>
+                      <th className="p-2 text-left">
+                        <button
                           onClick={() => handleSort("sales", "date")}
                           className="hover:underline"
                         >
@@ -381,13 +640,15 @@ const Reports = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {salesReport?.data?.map((sale: any) => (
+                    {salesReport?.sales?.map((sale) => (
                       <tr key={sale._id} className="border-b">
                         <td className="p-2">{sale.itemId.name}</td>
                         <td className="p-2">
                           {sale.customerId?.name || "Cash"}
                         </td>
                         <td className="p-2">{sale.quantity}</td>
+                        <td className="p-2">${sale.unitPrice.toFixed(2)}</td>
+                        <td className="p-2">${sale.totalPrice.toFixed(2)}</td>
                         <td className="p-2">
                           {new Date(sale.date).toLocaleDateString()}
                         </td>
@@ -456,6 +717,42 @@ const Reports = () => {
               <p className="text-text">Loading...</p>
             ) : (
               <>
+                <div className="mb-4">
+                  <h3 className="text-md font-medium text-text">Summary</h3>
+                  <p>
+                    Total Inventory Value: $
+                    {itemsReport?.summary.totalInventoryValue.toFixed(2)}
+                  </p>
+                  <p>Total Items: {itemsReport?.summary.totalItems}</p>
+                  <p>
+                    Average Price: $
+                    {itemsReport?.summary.averagePrice.toFixed(2)}
+                  </p>
+                  <p>Low Stock Items: {itemsReport?.summary.lowStockItems}</p>
+                  <p>Top Turnover Rates:</p>
+                  <ul className="list-disc pl-5">
+                    {itemsReport?.summary.turnoverRate.map((item) => (
+                      <li key={item.name}>
+                        {item.name}: {item.rate.toFixed(2)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mb-4">
+                  <Bar
+                    data={itemsChartData}
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                          display: true,
+                          text: "Inventory Value by Item",
+                        },
+                      },
+                    }}
+                  />
+                </div>
                 <table className="w-full text-sm text-text">
                   <thead>
                     <tr className="border-b">
@@ -499,16 +796,30 @@ const Reports = () => {
                               : ""}
                         </button>
                       </th>
+                      <th className="p-2 text-left">
+                        <button
+                          onClick={() => handleSort("items", "totalValue")}
+                          className="hover:underline"
+                        >
+                          Total Value{" "}
+                          {itemsSort === "totalValue"
+                            ? "↑"
+                            : itemsSort === "-totalValue"
+                              ? "↓"
+                              : ""}
+                        </button>
+                      </th>
                       <th className="p-2 text-left">Created By</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {itemsReport?.data?.map((item: any) => (
+                    {itemsReport?.items?.map((item) => (
                       <tr key={item._id} className="border-b">
                         <td className="p-2">{item.name}</td>
                         <td className="p-2">{item.description}</td>
                         <td className="p-2">{item.quantity}</td>
                         <td className="p-2">${item.price.toFixed(2)}</td>
+                        <td className="p-2">${item.totalValue.toFixed(2)}</td>
                         <td className="p-2">{item.createdBy.email}</td>
                       </tr>
                     ))}
@@ -576,6 +887,38 @@ const Reports = () => {
               <p className="text-text">Loading...</p>
             ) : customerId ? (
               <>
+                <div className="mb-4">
+                  <h3 className="text-md font-medium text-text">Summary</h3>
+                  <p>Total Spent: ${ledger?.summary?.totalSpent?.toFixed(2)}</p>
+                  <p>Total Transactions: {ledger?.summary.totalTransactions}</p>
+                  <p>
+                    Average Transaction Value: $
+                    {ledger?.summary.averageTransactionValue?.toFixed(2)}
+                  </p>
+                  <p>Payment Type Breakdown:</p>
+                  <ul className="list-disc pl-5">
+                    {ledger?.summary?.paymentTypeBreakdown?.map((pt) => (
+                      <li key={pt.type}>
+                        {pt.type}: {pt.count} ({pt.percentage.toFixed(2)}%)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="mb-4">
+                  <Pie
+                    data={ledgerChartData}
+                    options={{
+                      ...chartOptions,
+                      plugins: {
+                        ...chartOptions.plugins,
+                        title: {
+                          display: true,
+                          text: "Payment Type Breakdown",
+                        },
+                      },
+                    }}
+                  />
+                </div>
                 <table className="w-full text-sm text-text">
                   <thead>
                     <tr className="border-b">
@@ -607,6 +950,32 @@ const Reports = () => {
                       </th>
                       <th className="p-2 text-left">
                         <button
+                          onClick={() => handleSort("ledger", "unitPrice")}
+                          className="hover:underline"
+                        >
+                          Unit Price{" "}
+                          {ledgerSort === "unitPrice"
+                            ? "↑"
+                            : ledgerSort === "-unitPrice"
+                              ? "↓"
+                              : ""}
+                        </button>
+                      </th>
+                      <th className="p-2 text-left">
+                        <button
+                          onClick={() => handleSort("ledger", "totalPrice")}
+                          className="hover:underline"
+                        >
+                          Total Price{" "}
+                          {ledgerSort === "totalPrice"
+                            ? "↑"
+                            : ledgerSort === "-totalPrice"
+                              ? "↓"
+                              : ""}
+                        </button>
+                      </th>
+                      <th className="p-2 text-left">
+                        <button
                           onClick={() => handleSort("ledger", "date")}
                           className="hover:underline"
                         >
@@ -622,10 +991,12 @@ const Reports = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {ledger?.data?.map((sale: any) => (
+                    {ledger?.ledger?.map((sale) => (
                       <tr key={sale._id} className="border-b">
                         <td className="p-2">{sale.itemId.name}</td>
                         <td className="p-2">{sale.quantity}</td>
+                        <td className="p-2">${sale.unitPrice.toFixed(2)}</td>
+                        <td className="p-2">${sale.totalPrice.toFixed(2)}</td>
                         <td className="p-2">
                           {new Date(sale.date).toLocaleDateString()}
                         </td>

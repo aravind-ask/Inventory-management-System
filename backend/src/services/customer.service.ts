@@ -1,26 +1,17 @@
-import { CustomerRepository } from "../repositories/customer.repository";
-import Customer, { ICustomer } from "../models/customer.model";
+import { ICustomer } from "../models/customer.model";
+import {
+  GetAllCustomersParams,
+  GetAllCustomersResult,
+} from "../repositories/customer.repository";
+import { ICustomerRepository } from "../repositories/interfaces/ICustomerRepository";
 import { BadRequestError, NotFoundError } from "../utils/errors";
+import { ICustomerService } from "./interfaces/ICustomerInterface";
 
-interface GetAllCustomersParams {
-  page: number;
-  limit: number;
-  search: string;
-  sort: string;
-}
+export class CustomerService implements ICustomerService {
+  private customerRepository: ICustomerRepository;
 
-interface GetAllCustomersResult {
-  customers: ICustomer[];
-  total: number;
-  page: number;
-  totalPages: number;
-}
-
-export class CustomerService {
-  private customerRepository: CustomerRepository;
-
-  constructor() {
-    this.customerRepository = new CustomerRepository(Customer);
+  constructor(customerRepository: ICustomerRepository) {
+    this.customerRepository = customerRepository;
   }
 
   async createCustomer(data: Partial<ICustomer>): Promise<ICustomer> {
@@ -42,13 +33,7 @@ export class CustomerService {
   async getAllCustomers(
     params: GetAllCustomersParams
   ): Promise<GetAllCustomersResult> {
-    const { page, limit, search, sort } = params;
-    return this.customerRepository.getAllCustomers({
-      page,
-      limit,
-      search,
-      sort,
-    });
+    return this.customerRepository.getAllCustomers(params);
   }
 
   async updateCustomer(
