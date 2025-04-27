@@ -1,24 +1,11 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth } from "./baseApi";
 import toast from "react-hot-toast";
-
-interface Sale {
-  _id: string;
-  itemId: { name: string };
-  customerId: { name: string } | null;
-  quantity: number;
-  date: string;
-  paymentType: string;
-}
-
-interface Item {
-  _id: string;
-  name: string;
-  description: string;
-  quantity: number;
-  price: number;
-  createdBy: { email: string };
-}
+import {
+  SalesReport,
+  ItemsReport,
+  LedgerReport,
+} from "../pages/Reports";
 
 interface ReportQuery {
   page?: number;
@@ -29,19 +16,12 @@ interface ReportQuery {
   endDate?: string;
 }
 
-interface ReportResponse {
-  data: Sale[] | Item[];
-  total: number;
-  page: number;
-  totalPages: number;
-}
-
 export const reportsApi = createApi({
   reducerPath: "reportsApi",
   baseQuery: baseQueryWithReauth,
   tagTypes: ["Reports"],
   endpoints: (builder) => ({
-    getSalesReport: builder.query<ReportResponse, ReportQuery>({
+    getSalesReport: builder.query<SalesReport, ReportQuery>({
       query: ({
         page = 1,
         limit = 10,
@@ -55,15 +35,22 @@ export const reportsApi = createApi({
       }),
       providesTags: ["Reports"],
     }),
-    getItemsReport: builder.query<ReportResponse, ReportQuery>({
-      query: ({ page = 1, limit = 10, search = "", sort = "" }) => ({
+    getItemsReport: builder.query<ItemsReport, ReportQuery>({
+      query: ({
+        page = 1,
+        limit = 10,
+        search = "",
+        sort = "",
+        startDate,
+        endDate,
+      }) => ({
         url: "/reports/items",
-        params: { page, limit, search, sort },
+        params: { page, limit, search, sort, startDate, endDate },
       }),
       providesTags: ["Reports"],
     }),
     getCustomerLedger: builder.query<
-      ReportResponse,
+      LedgerReport,
       {
         customerId: string;
         page?: number;

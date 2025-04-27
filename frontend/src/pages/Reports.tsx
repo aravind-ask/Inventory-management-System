@@ -35,13 +35,13 @@ ChartJS.register(
   Legend
 );
 
-interface ReportFilter {
+export interface ReportFilter {
   startDate: string;
   endDate: string;
   customerId: string;
 }
 
-interface Sale {
+export interface Sale {
   _id: string;
   itemId: { _id: string; name: string; price: number };
   customerId?: { _id: string; name: string };
@@ -52,7 +52,7 @@ interface Sale {
   paymentType: string;
 }
 
-interface Item {
+export interface Item {
   _id: string;
   name: string;
   description: string;
@@ -62,7 +62,7 @@ interface Item {
   createdBy: { email: string };
 }
 
-interface SalesSummary {
+export interface SalesSummary {
   totalRevenue: number;
   totalSales: number;
   averageSalePrice: number;
@@ -70,7 +70,7 @@ interface SalesSummary {
   salesByDate: { date: string; total: number; revenue: number }[];
 }
 
-interface ItemsSummary {
+export interface ItemsSummary {
   totalInventoryValue: number;
   totalItems: number;
   averagePrice: number;
@@ -78,14 +78,14 @@ interface ItemsSummary {
   turnoverRate: { name: string; rate: number }[];
 }
 
-interface LedgerSummary {
+export interface LedgerSummary {
   totalSpent: number;
   totalTransactions: number;
   averageTransactionValue: number;
   paymentTypeBreakdown: { type: string; count: number; percentage: number }[];
 }
 
-interface SalesReport {
+export interface SalesReport {
   sales: Sale[];
   total: number;
   page: number;
@@ -93,7 +93,7 @@ interface SalesReport {
   summary: SalesSummary;
 }
 
-interface ItemsReport {
+export interface ItemsReport {
   items: Item[];
   total: number;
   page: number;
@@ -101,7 +101,7 @@ interface ItemsReport {
   summary: ItemsSummary;
 }
 
-interface LedgerReport {
+export interface LedgerReport {
   ledger: Sale[];
   total: number;
   page: number;
@@ -379,11 +379,17 @@ const Reports = () => {
 
   // Chart data
   const salesChartData = {
-    labels: salesReport?.summary.salesByDate.map((d) => d.date) || [],
+    labels:
+      salesReport?.summary.salesByDate.map(
+        (d: SalesSummary["salesByDate"][number]) => d.date
+      ) || [],
     datasets: [
       {
         label: "Revenue",
-        data: salesReport?.summary.salesByDate.map((d) => d.revenue) || [],
+        data:
+          salesReport?.summary.salesByDate.map(
+            (d: SalesSummary["salesByDate"][number]) => d.revenue
+          ) || [],
         borderColor: "#4BC0C0",
         backgroundColor: "rgba(75, 192, 192, 0.2)",
         fill: true,
@@ -392,22 +398,27 @@ const Reports = () => {
   };
 
   const itemsChartData = {
-    labels: itemsReport?.items.map((item) => item.name) || [],
+    labels: itemsReport?.items.map((item: Item) => item.name) || [],
     datasets: [
       {
         label: "Total Value",
-        data: itemsReport?.items.map((item) => item.totalValue) || [],
+        data: itemsReport?.items.map((item: Item) => item.totalValue) || [],
         backgroundColor: "#FF6384",
       },
     ],
   };
 
   const ledgerChartData = {
-    labels: ledger?.summary.paymentTypeBreakdown.map((pt) => pt.type) || [],
+    labels:
+      ledger?.summary.paymentTypeBreakdown.map(
+        (pt: LedgerSummary["paymentTypeBreakdown"][number]) => pt.type
+      ) || [],
     datasets: [
       {
         data:
-          ledger?.summary.paymentTypeBreakdown.map((pt) => pt.percentage) || [],
+          ledger?.summary.paymentTypeBreakdown.map(
+            (pt: LedgerSummary["paymentTypeBreakdown"][number]) => pt.percentage
+          ) || [],
         backgroundColor: ["#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0"],
       },
     ],
@@ -893,11 +904,11 @@ const Reports = () => {
                   <p>Total Transactions: {ledger?.summary.totalTransactions}</p>
                   <p>
                     Average Transaction Value: $
-                    {ledger?.summary.averageTransactionValue?.toFixed(2)}
+                    {ledger?.summary?.averageTransactionValue?.toFixed(2)}
                   </p>
                   <p>Payment Type Breakdown:</p>
                   <ul className="list-disc pl-5">
-                    {ledger?.summary?.paymentTypeBreakdown?.map((pt) => (
+                    {ledger?.summary.paymentTypeBreakdown.map((pt) => (
                       <li key={pt.type}>
                         {pt.type}: {pt.count} ({pt.percentage.toFixed(2)}%)
                       </li>
