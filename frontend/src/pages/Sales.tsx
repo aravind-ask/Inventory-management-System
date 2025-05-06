@@ -51,10 +51,31 @@ const Sales = () => {
   const selectedItem = items?.items?.find((item: Item) => item._id === itemId);
   const maxQuantity = selectedItem?.quantity || 0;
 
-  // Clamp quantity between 1 and maxQuantity on input change
+  // Handle quantity input change without clamping during typing
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = Number(e.target.value);
-    if (value < 1) {
+    const inputValue = e.target.value;
+    // Allow empty input while typing
+    if (inputValue === "") {
+      setValue("quantity", "" as any, { shouldValidate: false });
+      setErrorMessage(null);
+      return;
+    }
+
+    let value = Number(inputValue);
+    if (isNaN(value)) {
+      setValue("quantity", "" as any, { shouldValidate: false });
+      setErrorMessage("Please enter a valid number");
+      return;
+    }
+
+    setValue("quantity", value, { shouldValidate: true });
+    setErrorMessage(null);
+  };
+
+  // Clamp quantity on blur (when the user finishes editing)
+  const handleQuantityBlur = () => {
+    let value = Number(quantity);
+    if (isNaN(value) || value < 1) {
       value = 1;
       setErrorMessage("Quantity must be at least 1");
     } else if (value > maxQuantity) {
@@ -69,21 +90,24 @@ const Sales = () => {
   };
 
   const onSubmit = async (data: SaleForm) => {
-    if (data.quantity < 1) {
+    let finalQuantity = Number(data.quantity);
+    if (isNaN(finalQuantity) || finalQuantity < 1) {
       setErrorMessage("Quantity must be at least 1");
+      setValue("quantity", 1, { shouldValidate: true });
       return;
     }
-    if (data.quantity > maxQuantity) {
+    if (finalQuantity > maxQuantity) {
       setErrorMessage(
         `Quantity cannot exceed available stock (${maxQuantity})`
       );
+      setValue("quantity", maxQuantity, { shouldValidate: true });
       return;
     }
     try {
       await createSale({
         itemId: data.itemId,
         customerId: isCashSale ? undefined : data.customerId,
-        quantity: Number(data.quantity),
+        quantity: finalQuantity,
         paymentType: data.paymentType,
       }).unwrap();
       reset();
@@ -194,6 +218,7 @@ const Sales = () => {
                     },
                   })}
                   onChange={handleQuantityChange}
+                  onBlur={handleQuantityBlur}
                   value={quantity}
                   min={1}
                   max={maxQuantity}
