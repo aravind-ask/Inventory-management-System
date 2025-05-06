@@ -25,6 +25,7 @@ const Sales = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
   const [isCashSale, setIsCashSale] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { data: items } = useGetItemsQuery({ page: 1, limit: 100 });
   const { data: customers } = useGetCustomersQuery({ page: 1, limit: 100 });
   const { data, isLoading } = useGetSalesQuery({
@@ -38,6 +39,7 @@ const Sales = () => {
     register,
     handleSubmit,
     watch,
+    setValue,
     reset,
     formState: { errors },
   } = useForm<SaleForm>({
@@ -45,10 +47,38 @@ const Sales = () => {
   });
 
   const itemId = watch("itemId");
+  const quantity = watch("quantity");
   const selectedItem = items?.items?.find((item: Item) => item._id === itemId);
   const maxQuantity = selectedItem?.quantity || 0;
 
+  // Clamp quantity between 1 and maxQuantity on input change
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = Number(e.target.value);
+    if (value < 1) {
+      value = 1;
+      setErrorMessage("Quantity must be at least 1");
+    } else if (value > maxQuantity) {
+      value = maxQuantity;
+      setErrorMessage(
+        `Quantity cannot exceed available stock (${maxQuantity})`
+      );
+    } else {
+      setErrorMessage(null);
+    }
+    setValue("quantity", value, { shouldValidate: true });
+  };
+
   const onSubmit = async (data: SaleForm) => {
+    if (data.quantity < 1) {
+      setErrorMessage("Quantity must be at least 1");
+      return;
+    }
+    if (data.quantity > maxQuantity) {
+      setErrorMessage(
+        `Quantity cannot exceed available stock (${maxQuantity})`
+      );
+      return;
+    }
     try {
       await createSale({
         itemId: data.itemId,
@@ -57,7 +87,10 @@ const Sales = () => {
         paymentType: data.paymentType,
       }).unwrap();
       reset();
-    } catch {}
+      setErrorMessage(null);
+    } catch (error) {
+      setErrorMessage("Failed to record sale. Please try again.");
+    }
   };
 
   const handleSort = (field: string) => {
@@ -78,9 +111,20 @@ const Sales = () => {
         <div className="mb-8">
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-100"
+            className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 relative"
           >
             <h2 className="text-lg font-medium mb-4 text-text">Record Sale</h2>
+            {/* Error Message Toast */}
+            {errorMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-4 right-4 bg-red-500 text-white text-sm p-3 rounded-md shadow-lg"
+              >
+                {errorMessage}
+              </motion.div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-text text-sm mb-1">Item</label>
@@ -144,16 +188,14 @@ const Sales = () => {
                   type="number"
                   {...register("quantity", {
                     required: "Quantity is required",
-                    min: { value: 1, message: "Quantity must be at least 1" },
-                    max: {
-                      value: maxQuantity,
-                      message: `Quantity cannot exceed available stock (${maxQuantity})`,
-                    },
                     validate: {
                       itemSelected: () =>
                         itemId ? true : "Please select an item first",
                     },
                   })}
+                  onChange={handleQuantityChange}
+                  value={quantity}
+                  min={1}
                   max={maxQuantity}
                   className={`w-full p-2 border rounded-md text-sm focus:ring-2 focus:ring-secondary border-gray-300 ${
                     errors.quantity ? "border-red-500" : ""
