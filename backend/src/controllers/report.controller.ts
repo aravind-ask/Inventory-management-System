@@ -18,7 +18,6 @@ export class ReportController {
   }
 
   async getSalesReport(req: Request, res: Response) {
-    // Define validation rules
     await Promise.all([
       check("page")
         .optional()
@@ -101,7 +100,6 @@ export class ReportController {
   }
 
   async getItemsReport(req: Request, res: Response) {
-    // Define validation rules
     await Promise.all([
       check("page")
         .optional()
@@ -160,7 +158,6 @@ export class ReportController {
   }
 
   async getCustomerLedger(req: Request, res: Response) {
-    // Define validation rules
     await Promise.all([
       check("page")
         .optional()
@@ -212,7 +209,6 @@ export class ReportController {
   }
 
   async exportReport(req: Request, res: Response) {
-    // Define validation rules
     await Promise.all([
       check("type")
         .isIn(["sales", "items", "ledger"])

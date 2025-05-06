@@ -99,6 +99,7 @@ export class AuthController {
         "Token refreshed successfully"
       );
     } catch (err) {
+      console.log(err)
       return errorHandler(res, err);
     }
   }

@@ -13,14 +13,20 @@ interface SaleForm {
   paymentType: string;
 }
 
+interface Item {
+  _id: string;
+  name: string;
+  quantity: number;
+}
+
 const Sales = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
   const [isCashSale, setIsCashSale] = useState(false);
-  const { data: items } = useGetItemsQuery({ page: 1, limit: 100 }); // Fetch all items for dropdown
-  const { data: customers } = useGetCustomersQuery({ page: 1, limit: 100 }); // Fetch all customers for dropdown
+  const { data: items } = useGetItemsQuery({ page: 1, limit: 100 });
+  const { data: customers } = useGetCustomersQuery({ page: 1, limit: 100 });
   const { data, isLoading } = useGetSalesQuery({
     page,
     limit: pageSize,
@@ -31,11 +37,16 @@ const Sales = () => {
   const {
     register,
     handleSubmit,
+    watch,
     reset,
     formState: { errors },
   } = useForm<SaleForm>({
     defaultValues: { itemId: "", customerId: "", quantity: 1, paymentType: "" },
   });
+
+  const itemId = watch("itemId");
+  const selectedItem = items?.items?.find((item: Item) => item._id === itemId);
+  const maxQuantity = selectedItem?.quantity || 0;
 
   const onSubmit = async (data: SaleForm) => {
     try {
@@ -80,9 +91,9 @@ const Sales = () => {
                   }`}
                 >
                   <option value="">Select Item</option>
-                  {items?.items?.map((item) => (
+                  {items?.items?.map((item: Item) => (
                     <option key={item._id} value={item._id}>
-                      {item.name}
+                      {item.name} (Available: {item.quantity})
                     </option>
                   ))}
                 </select>
@@ -126,16 +137,28 @@ const Sales = () => {
                 </label>
               </div>
               <div>
-                <label className="block text-text text-sm mb-1">Quantity</label>
+                <label className="block text-text text-sm mb-1">
+                  Quantity (Available: {maxQuantity})
+                </label>
                 <input
                   type="number"
                   {...register("quantity", {
                     required: "Quantity is required",
                     min: { value: 1, message: "Quantity must be at least 1" },
+                    max: {
+                      value: maxQuantity,
+                      message: `Quantity cannot exceed available stock (${maxQuantity})`,
+                    },
+                    validate: {
+                      itemSelected: () =>
+                        itemId ? true : "Please select an item first",
+                    },
                   })}
+                  max={maxQuantity}
                   className={`w-full p-2 border rounded-md text-sm focus:ring-2 focus:ring-secondary border-gray-300 ${
                     errors.quantity ? "border-red-500" : ""
                   }`}
+                  disabled={!itemId}
                 />
                 {errors.quantity && (
                   <p className="text-red-500 text-xs mt-1">
@@ -172,6 +195,7 @@ const Sales = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="mt-4 bg-accent text-white p-2 rounded-md text-sm hover:bg-green-600"
+              disabled={!itemId || maxQuantity === 0}
             >
               Record Sale
             </motion.button>
